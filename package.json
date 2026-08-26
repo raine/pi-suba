@@ -12,7 +12,7 @@
     "test:integration": "vitest run test/integration.test.ts"
   },
   "pi": {
-    "extensions": ["./src/parent/index.ts"]
+    "extensions": ["./pi-suba.ts"]
   },
   "dependencies": {
     "yaml": "^2.8.1"
