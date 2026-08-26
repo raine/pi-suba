@@ -61,7 +61,7 @@ export function projectWidget(
     stale: !!record.activity && now - record.activity.updatedAt > staleAfterMs,
     model: shortModel(record.activity?.model ?? record.resolvedLaunch.model),
     thinking: record.activity?.thinking ?? record.resolvedLaunch.thinking ?? "default",
-    elapsed: formatElapsed(now - (record.activity?.activityStartedAt ?? record.startedAt)),
+    elapsed: formatElapsed(now - record.startedAt),
   }));
   return { activeCount: active.length, items, overflow: Math.max(0, active.length - items.length) };
 }

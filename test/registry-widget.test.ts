@@ -26,8 +26,10 @@ describe("registry and widget", () => {
 
   it("renders a bordered width-safe activity view", () => {
     const first = record(1);
-    first.activity = { version: 1, childId: "a1", sequence: 1, updatedAt: 20_000, state: "working", activity: "tool", toolName: "read" };
+    first.startedAt = 10_000;
+    first.activity = { version: 1, childId: "a1", sequence: 1, updatedAt: 20_000, state: "working", activity: "tool", toolName: "read", activityStartedAt: 24_500 };
     const projection = projectWidget([first], 25_000, 10_000, 3);
+    expect(projection.items[0]?.elapsed).toBe("15s");
     const theme = {
       fg: (_color: string, text: string) => text,
       bg: (_color: string, text: string) => text,
