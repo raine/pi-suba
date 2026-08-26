@@ -67,9 +67,9 @@ export function invocation(): string {
   const executable = process.execPath.split("/").pop()?.toLowerCase();
   return /^(node|bun)(\.exe)?$/.test(executable ?? "") ? "pi" : shellQuote(process.execPath);
 }
-function launchScript(args: string[], env: Record<string, string>, artifactDir: string): string {
+export function launchScript(args: string[], env: Record<string, string>, artifactDir: string, cwd: string): string {
   const exports = Object.entries(env).map(([key, value]) => `export ${key}=${shellQuote(value)}`).join("\n");
-  return `#!/bin/sh\n${exports}\n${invocation()} ${args.map(shellQuote).join(" ")}\nexit_code=$?\nprintf '%s\\n' "$exit_code" > ${shellQuote(join(artifactDir, "process-exit.tmp"))}\nmv ${shellQuote(join(artifactDir, "process-exit.tmp"))} ${shellQuote(join(artifactDir, "process-exit"))}\nexit "$exit_code"\n`;
+  return `#!/bin/sh\n${exports}\nif cd ${shellQuote(cwd)}; then\n  ${invocation()} ${args.map(shellQuote).join(" ")}\n  exit_code=$?\nelse\n  exit_code=$?\nfi\nprintf '%s\\n' "$exit_code" > ${shellQuote(join(artifactDir, "process-exit.tmp"))}\nmv ${shellQuote(join(artifactDir, "process-exit.tmp"))} ${shellQuote(join(artifactDir, "process-exit"))}\nexit "$exit_code"\n`;
 }
 
 type Theme = ExtensionContext["ui"]["theme"];
@@ -158,7 +158,7 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
     else args.push("--append-system-prompt", promptFile, "--append-system-prompt", controlFile);
     args.push(params.task);
     const scriptPath = join(artifactDir, "launch.sh");
-    await writeFile(scriptPath, launchScript(args, { SUBA_CHILD_ID: id, SUBA_ARTIFACT_DIR: artifactDir, SUBA_AUTO_COMPLETE: resolvedLaunch.autoComplete ? "1" : "0", SUBA_SESSION_FILE: sessionFile }, artifactDir), { encoding: "utf8", mode: 0o700 });
+    await writeFile(scriptPath, launchScript(args, { SUBA_CHILD_ID: id, SUBA_ARTIFACT_DIR: artifactDir, SUBA_AUTO_COMPLETE: resolvedLaunch.autoComplete ? "1" : "0", SUBA_SESSION_FILE: sessionFile }, artifactDir, cwd), { encoding: "utf8", mode: 0o700 });
     await chmod(scriptPath, 0o700);
     const placement = params.placement ?? resume?.placement ?? host.config.placement;
     let target;
