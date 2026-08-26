@@ -32,7 +32,7 @@ describe.skipIf(!model)("real Pi integration", () => {
     const childExtension = resolve("src/child/index.ts");
     const command = [
       `SUBA_CHILD_ID=realtest`, `SUBA_ARTIFACT_DIR=${quote(artifactDir)}`, `SUBA_AUTO_COMPLETE=1`,
-      "pi", "--no-extensions", "-e", quote(childExtension), "--tools", "subagent_done,caller_ping",
+      "pi", "--no-extensions", "-e", quote(childExtension), "--tools", "suba_done,suba_ping",
       "--no-context-files", "--no-skills", "--session", quote(sessionFile), "--model", quote(model!),
       quote("Reply with exactly: pi-suba integration ok"),
     ].join(" ");

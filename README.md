@@ -12,10 +12,10 @@ pi install /absolute/path/to/pi-suba
 
 Run the parent Pi session inside tmux. The package registers these parent tools:
 
-- `subagent`
-- `subagent_send`
-- `subagent_resume`
-- `subagents_list`
+- `suba`
+- `suba_send`
+- `suba_resume`
+- `suba_list`
 
 The `/suba <task>` command asks the parent agent to delegate one task using the
 model-selection guidance in `instructions.md`. Running `/suba` without arguments

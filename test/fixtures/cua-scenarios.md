@@ -8,7 +8,7 @@ stable child ID shown by the parent.
 ### Fresh split completion
 
 ```text
-Call subagent exactly once with name "fresh", task "[fake:complete] fresh split", context "fresh", and split placement. Do not call subagents_list.
+Call suba exactly once with name "fresh", task "[fake:complete] fresh split", context "fresh", and split placement. Do not call suba_list.
 ```
 
 ### Fork completion
@@ -16,7 +16,7 @@ Call subagent exactly once with name "fresh", task "[fake:complete] fresh split"
 First establish a unique conversation fact, then send:
 
 ```text
-Call subagent exactly once with name "fork", task "[fake:complete] fork context", context "fork", and split placement.
+Call suba exactly once with name "fork", task "[fake:complete] fork context", context "fork", and split placement.
 ```
 
 Inspect the child session to confirm that conversation entries before the
@@ -37,13 +37,13 @@ Launch a subagent named "ping" with task "[fake:ping] request guidance". When it
 Then:
 
 ```text
-Call subagent_send for <id> with the message "continue with option alpha".
+Call suba_send for <id> with the message "continue with option alpha".
 ```
 
 ### Multiline guidance
 
 ```text
-Call subagent_send for <id> with this exact multiline message:
+Call suba_send for <id> with this exact multiline message:
 first instruction
 second instruction
 third instruction
@@ -79,7 +79,7 @@ Launch a subagent named "resume" with task "[fake:complete] first result" and wa
 Then:
 
 ```text
-Call subagent_resume for <id> with task "[fake:complete] appended result".
+Call suba_resume for <id> with task "[fake:complete] appended result".
 ```
 
 The resumed result must contain the appended result and exclude the first one.
@@ -114,8 +114,8 @@ Use real mode for these flows:
    must remain unavailable.
 3. Confirm the extension sentinel records only `parent`.
 4. Launch a `persistent` child, interact in its pane, and call
-   `subagent_done`.
-5. Ask a child to call `caller_ping`, send guidance, and verify the same pane and
+   `suba_done`.
+5. Ask a child to call `suba_ping`, send guidance, and verify the same pane and
    session continue.
 6. Change the child model and thinking level interactively and inspect
    `activity.json`.

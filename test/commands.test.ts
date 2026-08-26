@@ -16,7 +16,7 @@ function context(options: { idle: boolean; editor?: string; hasUI?: boolean }): 
 describe("suba command", () => {
   it("builds parent delegation guidance", () => {
     const prompt = subaDelegationPrompt(" Inspect tmux ");
-    expect(prompt).toContain("using the subagent tool");
+    expect(prompt).toContain("using the suba tool");
     expect(prompt).toContain("number of subagents based on the independent workstreams");
     expect(prompt).toContain("multiple subagents in parallel");
     expect(prompt).toContain("fresh context for self-contained or independently scoped tasks");

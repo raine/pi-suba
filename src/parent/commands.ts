@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 
 export function subaDelegationPrompt(task: string): string {
   return [
-    "Delegate the following task using the subagent tool.",
+    "Delegate the following task using the suba tool.",
     "Choose the number of subagents based on the independent workstreams in the task.",
     "Use multiple subagents in parallel when targets or investigations can be handled independently; otherwise use one.",
     "Use fresh context for self-contained or independently scoped tasks; use fork only when a task requires the parent conversation.",

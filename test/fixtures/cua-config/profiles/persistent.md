@@ -8,4 +8,4 @@ system-prompt: append
 auto-complete: false
 ---
 
-Remain interactive until subagent_done is called.
+Remain interactive until suba_done is called.

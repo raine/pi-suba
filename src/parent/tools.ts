@@ -23,7 +23,7 @@ const ThinkingSchema = StringEnum(THINKING_LEVELS, { description: "Thinking leve
 const ModelSchema = Type.String({ description: "Fully qualified provider/model identifier. Omit it to use the configured default." });
 const ContextSchema = StringEnum(["fresh", "fork"] as const, { description: "Conversation context for the child. Prefer fresh for self-contained or independently scoped work. Use fork only when the task depends on parent conversation that cannot be included in the delegated task." });
 const shellQuote = (value: string) => `'${value.replaceAll("'", `'\"'\"'`)}'`;
-const CONTROL_PROMPT = `You are a delegated Pi subagent. Complete the assigned task independently. Use caller_ping only when parent guidance is required. Use subagent_done to finish immediately. Automatic completion ends a settled run when enabled.`;
+const CONTROL_PROMPT = `You are a delegated Pi subagent. Complete the assigned task independently. Use suba_ping only when parent guidance is required. Use suba_done to finish immediately. Automatic completion ends a settled run when enabled.`;
 
 export interface ManagerHost {
   config: SubaConfig;
@@ -150,7 +150,7 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
     await writeFile(controlFile, `${CONTROL_PROMPT}\n`, { encoding: "utf8", mode: 0o600 });
     const childExtension = fileURLToPath(new URL("../child/index.ts", import.meta.url));
     const configuredExtensions = host.config.childExtensions.flatMap((source) => ["-e", resolveChildExtensionSource(source)]);
-    const args = ["--no-extensions", ...configuredExtensions, "-e", childExtension, "--tools", [...TOOL_POLICIES[resolvedLaunch.tools], "subagent_done", "caller_ping"].join(","), "--session", sessionFile, "--name", `suba: ${params.name}`];
+    const args = ["--no-extensions", ...configuredExtensions, "-e", childExtension, "--tools", [...TOOL_POLICIES[resolvedLaunch.tools], "suba_done", "suba_ping"].join(","), "--session", sessionFile, "--name", `suba: ${params.name}`];
     if (!resolvedLaunch.loadContext) args.push("--no-context-files");
     if (!resolvedLaunch.loadSkills) args.push("--no-skills");
     if (resolvedLaunch.model) args.push("--model", resolvedLaunch.model);
@@ -176,8 +176,8 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
   };
 
   pi.registerTool({
-    name: "subagent", label: "Subagent", description: "Launch an interactive Pi subagent in tmux and return immediately. Results and help requests arrive automatically. Do not poll.",
-    promptSnippet: "Launch an asynchronous interactive Pi subagent in tmux",
+    name: "suba", label: "Suba", description: "Launch an interactive Pi subagent in tmux and return immediately. Results and help requests arrive automatically. Do not poll.",
+    promptSnippet: "Launch an asynchronous interactive Pi subagent with suba",
     parameters: Type.Object({ name: Type.String(), task: Type.String(), profile: Type.Optional(Type.String()), context: Type.Optional(ContextSchema), model: Type.Optional(ModelSchema), thinking: Type.Optional(ThinkingSchema), cwd: Type.Optional(Type.String()), placement: Type.Optional(PlacementSchema), autoComplete: Type.Optional(Type.Boolean()) }),
     async execute(_id, params, _signal, _update, ctx) {
       const record = await start(params, ctx);
@@ -222,7 +222,7 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
     },
   });
   pi.registerTool({
-    name: "subagent_send", label: "Send to Subagent", description: "Send guidance to a live subagent by stable child ID.", parameters: Type.Object({ id: Type.String(), message: Type.String() }),
+    name: "suba_send", label: "Suba Send", description: "Send guidance to a live subagent by stable child ID.", parameters: Type.Object({ id: Type.String(), message: Type.String() }),
     async execute(_call, params) {
       const record = host.records.get(params.id);
       if (!record || !isLive(record) || !record.paneId) throw new Error(`Subagent ${params.id} is not live`);
@@ -250,7 +250,7 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
     },
   });
   pi.registerTool({
-    name: "subagent_resume", label: "Resume Subagent", description: "Resume a completed or exited subagent thread in a new tmux target.",
+    name: "suba_resume", label: "Suba Resume", description: "Resume a completed or exited subagent thread in a new tmux target.",
     parameters: Type.Object({ id: Type.String(), task: Type.String(), placement: Type.Optional(PlacementSchema), model: Type.Optional(ModelSchema), thinking: Type.Optional(ThinkingSchema) }),
     async execute(_call, params, _signal, _update, ctx) {
       const previous = host.records.get(params.id);
@@ -286,7 +286,7 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
     },
   });
   pi.registerTool({
-    name: "subagents_list", label: "List Subagents", description: "List subagent registry and live activity. Use only when status details are needed, not to poll for results.", parameters: Type.Object({ status: Type.Optional(StringEnum(["running", "completed", "all"] as const)) }),
+    name: "suba_list", label: "Suba List", description: "List subagent registry and live activity. Use only when status details are needed, not to poll for results.", parameters: Type.Object({ status: Type.Optional(StringEnum(["running", "completed", "all"] as const)) }),
     async execute(_call, params) {
       const records = [...host.records.values()]
         .filter((record) => params.status === "running" ? isLive(record) : params.status === "completed" ? !isLive(record) : true)

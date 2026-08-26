@@ -35,13 +35,13 @@ export default function (pi: ExtensionAPI) {
   };
 
   pi.registerTool({
-    name: "subagent_done", label: "Subagent Done", description: "Finish this delegated task immediately. The latest assistant text becomes the parent result.", parameters: Type.Object({}),
+    name: "suba_done", label: "Suba Done", description: "Finish this delegated task immediately. The latest assistant text becomes the parent result.", parameters: Type.Object({}),
     async execute(_id, _params, _signal, _update, ctx) { await finish(ctx, true); return { content: [{ type: "text", text: "Subagent completion recorded. Shutting down." }], details: {}, terminate: true }; },
   });
   pi.registerTool({
-    name: "caller_ping", label: "Caller Ping", description: "Ask the parent agent for guidance without closing this Pi session. The current run stops until guidance arrives.", parameters: Type.Object({ message: Type.String({ description: "Question or requested parent action" }) }),
+    name: "suba_ping", label: "Suba Ping", description: "Ask the parent agent for guidance without closing this Pi session. The current run stops until guidance arrives.", parameters: Type.Object({ message: Type.String({ description: "Question or requested parent action" }) }),
     async execute(_id, params) {
-      if (lifecycle !== "running") throw new Error(`caller_ping is unavailable while lifecycle is ${lifecycle}`);
+      if (lifecycle !== "running") throw new Error(`suba_ping is unavailable while lifecycle is ${lifecycle}`);
       lifecycle = "awaiting-parent"; await events.ping(params.message); await activity.waiting();
       return { content: [{ type: "text", text: "Parent guidance requested. Waiting for input." }], details: {}, terminate: true };
     },
