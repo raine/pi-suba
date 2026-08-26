@@ -70,7 +70,9 @@ configured defaults above.
 ```markdown
 # Subagent model selection
 
-Use `openai-codex/gpt-5.6-luna` with low thinking for quick, narrow work.
+Use `openai-codex/gpt-5.6-luna` with low thinking when the task requires little
+reasoning. Task size alone does not require a stronger model.
+
 Use `openai-codex/gpt-5.6-sol` with medium thinking for routine work.
 Use `openai-codex/gpt-5.6-sol` with xhigh thinking for complex work.
 ```
