@@ -19,7 +19,7 @@ describe("tmux window names", () => {
 
 describe.skipIf(!process.env.PATH)("tmux integration", () => {
   let parentPane = "";
-  beforeAll(async () => { try { await exec("tmux", ["-V"]); } catch { return; } await run(["new-session", "-d", "-s", "test", "-P", "-F", "#{pane_id}", "sleep 60"]).then((value) => parentPane = value); });
+  beforeAll(async () => { try { await exec("tmux", ["-V"]); } catch { return; } await run(["new-session", "-d", "-x", "200", "-y", "60", "-s", "test", "-P", "-F", "#{pane_id}", "sleep 60"]).then((value) => parentPane = value); });
   afterAll(async () => { try { await run(["kill-server"]); } catch {} });
   it("creates stable panes and sends literal and multiline input", async () => {
     if (!parentPane) return;
@@ -31,6 +31,20 @@ describe.skipIf(!process.env.PATH)("tmux integration", () => {
     if (!parentPane) return;
     const target = await createTarget({ type: "window" }, parentPane, "sleep 60", "watcher-research", "suba", run);
     expect(await run(["display-message", "-p", "-t", target.paneId, "#{window_name}"])).toBe("suba-watcher-research");
+  });
+  it("balances concurrent splits across managed panes", async () => {
+    if (!parentPane) return;
+    const root = await run(["new-window", "-d", "-P", "-F", "#{pane_id}", "-n", "balanced", "-t", "test:", "sleep 60"]);
+    const unrelated = await run(["split-window", "-h", "-d", "-p", "20", "-P", "-F", "#{pane_id}", "-t", root, "sleep 60"]);
+    const unrelatedWidth = await run(["display-message", "-p", "-t", unrelated, "#{pane_width}"]);
+    const children = await Promise.all([
+      createTarget({ type: "split" }, root, "sleep 60", "one", "suba", run),
+      createTarget({ type: "split" }, root, "sleep 60", "two", "suba", run),
+      createTarget({ type: "split" }, root, "sleep 60", "three", "suba", run),
+    ]);
+    const widths = await Promise.all([root, ...children.map((child) => child.paneId)].map(async (pane) => Number(await run(["display-message", "-p", "-t", pane, "#{pane_width}"]))));
+    expect(Math.max(...widths) - Math.min(...widths)).toBeLessThanOrEqual(1);
+    expect(await run(["display-message", "-p", "-t", unrelated, "#{pane_width}"])).toBe(unrelatedWidth);
   });
   it("creates and tiles a shared window", async () => {
     if (!parentPane) return;

@@ -34,11 +34,15 @@ async function pinWindowName(target: string, name: string, run: TmuxExec): Promi
   await run(["rename-window", "-t", target, name]);
 }
 
+let splitQueue = Promise.resolve();
 let sharedWindowQueue = Promise.resolve();
-async function withSharedWindowLock<T>(action: () => Promise<T>): Promise<T> {
-  const previous = sharedWindowQueue;
+
+async function withQueue<T>(queue: "split" | "shared", action: () => Promise<T>): Promise<T> {
+  const previous = queue === "split" ? splitQueue : sharedWindowQueue;
   let release = () => {};
-  sharedWindowQueue = new Promise<void>((resolve) => { release = resolve; });
+  const next = new Promise<void>((resolve) => { release = resolve; });
+  if (queue === "split") splitQueue = next;
+  else sharedWindowQueue = next;
   await previous;
   try { return await action(); } finally { release(); }
 }
@@ -54,11 +58,20 @@ async function findWindow(sessionId: string, name: string, run: TmuxExec): Promi
 
 export async function createTarget(placement: Placement, parentPane: string, command: string, displayName: string, sharedDefault: string, run = tmuxExec): Promise<TmuxTarget> {
   if (placement.type === "split") {
-    const geometry = await run(["display-message", "-p", "-t", parentPane, "#{pane_width} #{pane_height}"]);
-    const [width, height] = geometry.split(" ").map(Number);
-    const orientation = width >= height * 2 ? "-h" : "-v";
-    const paneId = await run(["split-window", orientation, "-d", "-P", "-F", "#{pane_id}", "-t", parentPane, command]);
-    return { paneId, placement };
+    return withQueue("split", async () => {
+      const windowId = await run(["display-message", "-p", "-t", parentPane, "#{window_id}"]);
+      const panes = await run(["list-panes", "-t", windowId, "-F", "#{pane_id}\t#{pane_width}\t#{pane_height}\t#{@suba-parent-pane}"]);
+      const eligible = panes.split("\n").flatMap((line) => {
+        const [paneId, width, height, owner] = line.split("\t");
+        if (!paneId || (paneId !== parentPane && owner !== parentPane)) return [];
+        return [{ paneId, width: Number(width), height: Number(height) }];
+      });
+      const target = eligible.reduce((largest, pane) => pane.width * pane.height > largest.width * largest.height ? pane : largest);
+      const orientation = target.width >= target.height * 2 ? "-h" : "-v";
+      const paneId = await run(["split-window", orientation, "-d", "-P", "-F", "#{pane_id}", "-t", target.paneId, command]);
+      await run(["set-option", "-p", "-t", paneId, "@suba-parent-pane", parentPane]);
+      return { paneId, placement };
+    });
   }
   if (placement.type === "window") {
     const windowName = subaWindowName(placement.windowName ?? displayName);
@@ -67,7 +80,7 @@ export async function createTarget(placement: Placement, parentPane: string, com
     await pinWindowName(paneId, windowName, run);
     return { paneId, placement };
   }
-  return withSharedWindowLock(async () => {
+  return withQueue("shared", async () => {
     const windowName = subaWindowName(placement.windowName ?? sharedDefault);
     const sessionId = await run(["display-message", "-p", "-t", parentPane, "#{session_id}"]);
     let windowId = await findWindow(sessionId, windowName, run);
