@@ -1,14 +1,13 @@
 import { keyHint, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
 import { loadConfig, type SubaConfig } from "../shared/config.ts";
 import { loadInstructions } from "../shared/instructions.ts";
 import { loadProfiles, type Profile } from "../shared/profiles.ts";
 import { tmuxExec } from "../shared/tmux.ts";
 import { registerTools, type ManagerHost } from "./tools.ts";
 import { isLive, restoreRegistry, type ChildRecord } from "./registry.ts";
-import { collapsedCompletedResult } from "./result.ts";
+import { renderSubagentMessage, type SubagentMessageDetails } from "./result.ts";
 import { ChildWatcher } from "./watcher.ts";
-import { ActivityWidget, projectWidgetRows } from "./widget.ts";
+import { ActivityWidget, projectWidget } from "./widget.ts";
 
 export default async function (pi: ExtensionAPI) {
   let config: SubaConfig = await loadConfig();
@@ -19,13 +18,21 @@ export default async function (pi: ExtensionAPI) {
   let renderTimer: NodeJS.Timeout | undefined;
   const refreshWidget = () => {
     if (!latestCtx?.hasUI) return;
-    const rows = projectWidgetRows([...records.values()], Date.now(), config.activity.staleAfterMs, config.activity.maxRows);
-    if (!rows.length) {
+    const projection = projectWidget([...records.values()], Date.now(), config.activity.staleAfterMs, config.activity.maxRows);
+    if (!projection.activeCount) {
       latestCtx.ui.setWidget("suba-activity", undefined);
-      if (renderTimer) clearInterval(renderTimer); renderTimer = undefined;
+      if (renderTimer) clearInterval(renderTimer);
+      renderTimer = undefined;
       return;
     }
-    latestCtx.ui.setWidget("suba-activity", (tui) => new ActivityWidget(() => projectWidgetRows([...records.values()], Date.now(), config.activity.staleAfterMs, config.activity.maxRows)));
+    latestCtx.ui.setWidget(
+      "suba-activity",
+      (_tui, theme) => new ActivityWidget(
+        () => projectWidget([...records.values()], Date.now(), config.activity.staleAfterMs, config.activity.maxRows),
+        theme,
+      ),
+      { placement: "aboveEditor" },
+    );
     if (!renderTimer) renderTimer = setInterval(() => refreshWidget(), 1000);
   };
   const host = { config, profiles, records, persist: (record: ChildRecord) => pi.appendEntry("suba-child", record), refreshWidget, watch: (id: string) => void watcher.check(id) } satisfies ManagerHost;
@@ -35,20 +42,38 @@ export default async function (pi: ExtensionAPI) {
     update: (record: ChildRecord, notify?: { type: "result" | "ping"; content: string }) => {
       records.set(record.id, record); pi.appendEntry("suba-child", record); refreshWidget();
       if (!isLive(record) && record.windowId && record.placement.type === "shared-window") void tmuxExec(["select-layout", "-t", record.windowId, "tiled"]).catch(() => undefined);
-      if (notify) pi.sendMessage({ customType: "suba-result", content: notify.content, display: true, details: { id: record.id, name: record.name, state: record.state, sessionFile: record.sessionFile, elapsed: Date.now() - record.startedAt } }, { deliverAs: "steer", triggerTurn: true });
+      if (notify) pi.sendMessage({
+        customType: "suba-result",
+        content: notify.content,
+        display: true,
+        details: {
+          id: record.id,
+          name: record.name,
+          state: record.state,
+          sessionFile: record.sessionFile,
+          paneId: record.paneId,
+          profile: record.profile,
+          model: record.activity?.model ?? record.resolvedLaunch.model,
+          thinking: record.activity?.thinking ?? record.resolvedLaunch.thinking,
+          elapsed: Date.now() - record.startedAt,
+          error: record.error,
+        } satisfies SubagentMessageDetails,
+      }, { deliverAs: "steer", triggerTurn: true });
     },
     activity: (record: ChildRecord) => { records.set(record.id, record); refreshWidget(); },
   };
   const watcher = new ChildWatcher(config.activity.pollMs, callbacks);
   registerTools(pi, host);
   pi.registerMessageRenderer("suba-result", (message, options, theme) => {
-    const details = message.details as { id?: string; name?: string; state?: string } | undefined;
-    const color = details?.state === "completed" ? "success" : details?.state === "awaiting-parent" ? "warning" : "error";
+    const details = (message.details ?? {}) as SubagentMessageDetails;
     const content = typeof message.content === "string" ? message.content : JSON.stringify(message.content);
-    const rendered = details?.state === "completed" && !options.expanded
-      ? collapsedCompletedResult(details.name ?? "unknown", details.id ?? "unknown", content, keyHint("app.tools.expand", "to expand"))
-      : content;
-    return new Text(theme.fg(color, rendered), 1, 0);
+    return renderSubagentMessage(
+      content,
+      details,
+      options.expanded,
+      keyHint("app.tools.expand", "to expand"),
+      theme,
+    );
   });
   pi.on("before_agent_start", (event) => {
     if (!instructions) return;
