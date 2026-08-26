@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { keyHint, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { loadConfig, type SubaConfig } from "../shared/config.ts";
 import { loadInstructions } from "../shared/instructions.ts";
@@ -6,6 +6,7 @@ import { loadProfiles, type Profile } from "../shared/profiles.ts";
 import { tmuxExec } from "../shared/tmux.ts";
 import { registerTools, type ManagerHost } from "./tools.ts";
 import { isLive, restoreRegistry, type ChildRecord } from "./registry.ts";
+import { collapsedCompletedResult } from "./result.ts";
 import { ChildWatcher } from "./watcher.ts";
 import { ActivityWidget, projectWidgetRows } from "./widget.ts";
 
@@ -40,10 +41,14 @@ export default async function (pi: ExtensionAPI) {
   };
   const watcher = new ChildWatcher(config.activity.pollMs, callbacks);
   registerTools(pi, host);
-  pi.registerMessageRenderer("suba-result", (message, _options, theme) => {
-    const state = (message.details as { state?: string } | undefined)?.state;
-    const color = state === "completed" ? "success" : state === "awaiting-parent" ? "warning" : "error";
-    return new Text(theme.fg(color, typeof message.content === "string" ? message.content : JSON.stringify(message.content)), 1, 0);
+  pi.registerMessageRenderer("suba-result", (message, options, theme) => {
+    const details = message.details as { id?: string; name?: string; state?: string } | undefined;
+    const color = details?.state === "completed" ? "success" : details?.state === "awaiting-parent" ? "warning" : "error";
+    const content = typeof message.content === "string" ? message.content : JSON.stringify(message.content);
+    const rendered = details?.state === "completed" && !options.expanded
+      ? collapsedCompletedResult(details.name ?? "unknown", details.id ?? "unknown", content, keyHint("app.tools.expand", "to expand"))
+      : content;
+    return new Text(theme.fg(color, rendered), 1, 0);
   });
   pi.on("before_agent_start", (event) => {
     if (!instructions) return;

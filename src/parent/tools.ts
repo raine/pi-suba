@@ -89,7 +89,7 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
     const cwd = resume?.cwd ?? resolve(ctx.cwd, params.cwd ?? ".");
     const artifactRoot = process.env.SUBA_ARTIFACT_ROOT?.trim()
       ? resolve(process.env.SUBA_ARTIFACT_ROOT)
-      : join(homedir(), ".pi", "suba");
+      : join(homedir(), ".pi", "suba", "artifacts");
     const artifactDir = resume?.artifactDir ?? join(artifactRoot, ctx.sessionManager.getSessionId(), id);
     const sessionFile = resume?.sessionFile ?? join(artifactDir, "session.jsonl");
     await mkdir(join(artifactDir, "events"), { recursive: true });

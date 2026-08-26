@@ -22,6 +22,7 @@ Subagent resources live together under `~/.pi/suba/`:
 - `config.json` contains machine-readable settings.
 - `instructions.md` contains parent-agent instructions.
 - `profiles/*.md` contains child profiles.
+- `artifacts/` contains parent-session and child-run state.
 
 ```json
 {
@@ -73,6 +74,9 @@ Use `openai-codex/gpt-5.6-luna` with low thinking for quick, narrow work.
 Use `openai-codex/gpt-5.6-sol` with medium thinking for routine work.
 Use `openai-codex/gpt-5.6-sol` with xhigh thinking for complex work.
 ```
+
+Completed child reports remain available to the parent model while the TUI shows
+a one-line completion notice. Expand tool output to inspect the full report.
 
 `childExtensions` lists Pi packages or extension files loaded explicitly in every
 child while automatic extension discovery remains disabled. Relative local paths

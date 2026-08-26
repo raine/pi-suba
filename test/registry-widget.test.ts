@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextRevision, restoreRegistry, type ChildRecord } from "../src/parent/registry.ts";
+import { nextRevision, resolveStoredArtifactPaths, restoreRegistry, type ChildRecord } from "../src/parent/registry.ts";
 import { projectWidgetRows } from "../src/parent/widget.ts";
 
 const record = (revision: number): ChildRecord => ({ id: "a1", revision, state: "running", sessionFile: "/s", artifactDir: "/a", placement: { type: "split" }, name: "auth-tests", cwd: "/w", profile: "default", resolvedLaunch: { profile: "default", tools: "default", loadContext: true, loadSkills: true, systemPrompt: "append", autoComplete: true, model: "anthropic/claude-sonnet-4-6", thinking: "medium" }, lastEventSequence: 0, startedAt: 0, resultAfterEntry: 1 });
@@ -9,6 +9,12 @@ describe("registry and widget", () => {
     const restored = restoreRegistry([{ type: "custom", customType: "suba-child", data: record(1) }, { type: "custom", customType: "suba-child", data: record(3) }]);
     expect(restored.get("a1")?.revision).toBe(3);
     expect(nextRevision(record(3), { state: "completed" }).revision).toBe(4);
+  });
+  it("finds stored artifacts under their resource directory", () => {
+    const previous = { ...record(1), artifactDir: "/home/user/.pi/suba/session-id/child-id", sessionFile: "/home/user/.pi/suba/session-id/child-id/session.jsonl" };
+    const resolved = resolveStoredArtifactPaths(previous, "/home/user/.pi/suba", (path) => path === "/home/user/.pi/suba/artifacts/session-id/child-id");
+    expect(resolved.artifactDir).toBe("/home/user/.pi/suba/artifacts/session-id/child-id");
+    expect(resolved.sessionFile).toBe("/home/user/.pi/suba/artifacts/session-id/child-id/session.jsonl");
   });
   it("caps rows and marks stale activity", () => {
     const first = record(1); first.activity = { version: 1, childId: "a1", sequence: 1, updatedAt: 1, state: "working", activity: "tool", toolName: "bash" };

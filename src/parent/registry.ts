@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { isAbsolute, join, relative, sep } from "node:path";
 import type { ChildActivity, Placement, ThinkingLevel } from "../shared/protocol.ts";
 import type { AllowedToolPolicy } from "../shared/profiles.ts";
 
@@ -34,6 +37,23 @@ export interface ChildRecord {
   activityError?: string;
 }
 
+export function resolveStoredArtifactPaths(
+  record: ChildRecord,
+  root = join(homedir(), ".pi", "suba"),
+  exists: (path: string) => boolean = existsSync,
+): ChildRecord {
+  if (exists(record.artifactDir)) return record;
+  const stored = relative(root, record.artifactDir);
+  if (!stored || stored === ".." || stored.startsWith(`..${sep}`) || isAbsolute(stored) || stored.split(sep).length !== 2) return record;
+  const artifactDir = join(root, "artifacts", stored);
+  if (!exists(artifactDir)) return record;
+  const sessionRelative = relative(record.artifactDir, record.sessionFile);
+  const sessionFile = sessionRelative === ".." || sessionRelative.startsWith(`..${sep}`) || isAbsolute(sessionRelative)
+    ? record.sessionFile
+    : join(artifactDir, sessionRelative);
+  return { ...record, artifactDir, sessionFile };
+}
+
 export function restoreRegistry(entries: readonly unknown[]): Map<string, ChildRecord> {
   const records = new Map<string, ChildRecord>();
   for (const raw of entries) {
@@ -42,7 +62,7 @@ export function restoreRegistry(entries: readonly unknown[]): Map<string, ChildR
     const record = entry.data as ChildRecord;
     if (!record.id || !Number.isInteger(record.revision)) continue;
     const previous = records.get(record.id);
-    if (!previous || record.revision > previous.revision) records.set(record.id, structuredClone(record));
+    if (!previous || record.revision > previous.revision) records.set(record.id, resolveStoredArtifactPaths(structuredClone(record)));
   }
   return records;
 }
