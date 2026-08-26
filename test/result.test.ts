@@ -44,6 +44,7 @@ describe("completed result rendering", () => {
       theme,
     );
     const lines = card.render(48);
+    expect(lines[0]).not.toBe("");
     expect(lines.join("\n")).toContain("✓ research  completed · 2s");
     expect(lines.join("\n")).toContain("… 1 more line");
     expect(lines.every((line) => visibleWidth(line) <= 48)).toBe(true);

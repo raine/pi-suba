@@ -122,10 +122,7 @@ export function renderSubagentMessage(
     container.addChild(new Text(theme.fg("muted", expansionHint), 0, 0));
   }
 
-  const box = new Box(1, 1, (text) => theme.bg(state.background, text));
+  const box = new Box(1, 0, (text) => theme.bg(state.background, text));
   box.addChild(container);
-  const outer = new Container();
-  outer.addChild(new Spacer(1));
-  outer.addChild(box);
-  return outer;
+  return box;
 }
