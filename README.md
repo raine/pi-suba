@@ -17,6 +17,11 @@ Run the parent Pi session inside tmux. The package registers these parent tools:
 - `subagent_resume`
 - `subagents_list`
 
+The `/suba <task>` command asks the parent agent to delegate one task using the
+model-selection guidance in `instructions.md`. Running `/suba` without arguments
+opens a multiline task editor. Requests entered while the parent is busy are
+queued as follow-up messages.
+
 Subagent resources live together under `~/.pi/suba/`:
 
 - `config.json` contains machine-readable settings.
@@ -78,7 +83,7 @@ Use `openai-codex/gpt-5.6-sol` with xhigh thinking for complex work.
 ```
 
 Completed child reports remain available to the parent model while the TUI shows
-a one-line completion notice. Expand tool output to inspect the full report.
+a compact bounded preview. Expand tool output to inspect the full report.
 
 `childExtensions` lists Pi packages or extension files loaded explicitly in every
 child while automatic extension discovery remains disabled. Relative local paths

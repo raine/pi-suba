@@ -3,6 +3,7 @@ import { loadConfig, type SubaConfig } from "../shared/config.ts";
 import { loadInstructions } from "../shared/instructions.ts";
 import { loadProfiles, type Profile } from "../shared/profiles.ts";
 import { tmuxExec } from "../shared/tmux.ts";
+import { registerCommands } from "./commands.ts";
 import { registerTools, type ManagerHost } from "./tools.ts";
 import { isLive, restoreRegistry, type ChildRecord } from "./registry.ts";
 import { renderSubagentMessage, type SubagentMessageDetails } from "./result.ts";
@@ -64,6 +65,7 @@ export default async function (pi: ExtensionAPI) {
   };
   const watcher = new ChildWatcher(config.activity.pollMs, callbacks);
   registerTools(pi, host);
+  registerCommands(pi);
   pi.registerMessageRenderer("suba-result", (message, options, theme) => {
     const details = (message.details ?? {}) as SubagentMessageDetails;
     const content = typeof message.content === "string" ? message.content : JSON.stringify(message.content);
