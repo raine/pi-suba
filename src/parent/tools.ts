@@ -21,6 +21,7 @@ import { formatElapsed, shortModel } from "./widget.ts";
 const PlacementSchema = Type.Object({ type: StringEnum(["split", "window", "shared-window"] as const), windowName: Type.Optional(Type.String()) });
 const ThinkingSchema = StringEnum(THINKING_LEVELS, { description: "Thinking level paired with an explicit model choice. Omit it to use the configured default." });
 const ModelSchema = Type.String({ description: "Fully qualified provider/model identifier. Omit it to use the configured default." });
+const ContextSchema = StringEnum(["fresh", "fork"] as const, { description: "Conversation context for the child. Prefer fresh for self-contained or independently scoped work. Use fork only when the task depends on parent conversation that cannot be included in the delegated task." });
 const shellQuote = (value: string) => `'${value.replaceAll("'", `'\"'\"'`)}'`;
 const CONTROL_PROMPT = `You are a delegated Pi subagent. Complete the assigned task independently. Use caller_ping only when parent guidance is required. Use subagent_done to finish immediately. Automatic completion ends a settled run when enabled.`;
 
@@ -177,7 +178,7 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
   pi.registerTool({
     name: "subagent", label: "Subagent", description: "Launch an interactive Pi subagent in tmux and return immediately. Results and help requests arrive automatically. Do not poll.",
     promptSnippet: "Launch an asynchronous interactive Pi subagent in tmux",
-    parameters: Type.Object({ name: Type.String(), task: Type.String(), profile: Type.Optional(Type.String()), context: Type.Optional(StringEnum(["fresh", "fork"] as const)), model: Type.Optional(ModelSchema), thinking: Type.Optional(ThinkingSchema), cwd: Type.Optional(Type.String()), placement: Type.Optional(PlacementSchema), autoComplete: Type.Optional(Type.Boolean()) }),
+    parameters: Type.Object({ name: Type.String(), task: Type.String(), profile: Type.Optional(Type.String()), context: Type.Optional(ContextSchema), model: Type.Optional(ModelSchema), thinking: Type.Optional(ThinkingSchema), cwd: Type.Optional(Type.String()), placement: Type.Optional(PlacementSchema), autoComplete: Type.Optional(Type.Boolean()) }),
     async execute(_id, params, _signal, _update, ctx) {
       const record = await start(params, ctx);
       return {

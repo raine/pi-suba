@@ -70,7 +70,10 @@ Supported tool policies are `default` (`read,bash,edit,write`) and `read-only`
 Markdown for model-selection policy and other delegation guidance. Explicit
 model selections must use a fully qualified `provider/model` identifier and must
 be in the current model scope. Omitting `model` and `thinking` uses the
-configured defaults above.
+configured defaults above. Child context is fresh when `context` is omitted.
+Use `context: "fork"` only when the delegated task depends on parent conversation
+that cannot be included in its task prompt. Fresh context keeps independently
+scoped parallel work isolated.
 
 ```markdown
 # Subagent model selection

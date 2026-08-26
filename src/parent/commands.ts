@@ -5,6 +5,7 @@ export function subaDelegationPrompt(task: string): string {
     "Delegate the following task using the subagent tool.",
     "Choose the number of subagents based on the independent workstreams in the task.",
     "Use multiple subagents in parallel when targets or investigations can be handled independently; otherwise use one.",
+    "Use fresh context for self-contained or independently scoped tasks; use fork only when a task requires the parent conversation.",
     "Choose each model and thinking level using the configured subagent guidance.",
     "Give each subagent a concise descriptive name and do not poll for results.",
     "",
