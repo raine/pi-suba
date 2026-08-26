@@ -17,7 +17,10 @@ describe("suba command", () => {
   it("builds parent delegation guidance", () => {
     const prompt = subaDelegationPrompt(" Inspect tmux ");
     expect(prompt).toContain("using the subagent tool");
+    expect(prompt).toContain("number of subagents based on the independent workstreams");
+    expect(prompt).toContain("multiple subagents in parallel");
     expect(prompt).toContain("configured subagent guidance");
+    expect(prompt).not.toContain("to one subagent");
     expect(prompt).toContain("\n\nInspect tmux");
   });
 
