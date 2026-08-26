@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+node "$(git rev-parse --show-toplevel)/.githooks/format-staged.mjs"

@@ -1,1 +1,1 @@
-export { default } from "./src/parent/index.ts";
+export { default } from "./src/parent/index.ts"

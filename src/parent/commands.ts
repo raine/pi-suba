@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent"
 
 export function subaDelegationPrompt(task: string): string {
   return [
@@ -10,7 +10,7 @@ export function subaDelegationPrompt(task: string): string {
     "Give each subagent a concise descriptive name and do not poll for results.",
     "",
     task.trim(),
-  ].join("\n");
+  ].join("\n")
 }
 
 export async function runSubaCommand(
@@ -18,28 +18,28 @@ export async function runSubaCommand(
   args: string,
   ctx: ExtensionCommandContext,
 ): Promise<void> {
-  let task = args.trim();
+  let task = args.trim()
   if (!task) {
     if (!ctx.hasUI) {
-      ctx.ui.notify("Usage: /suba <task>", "warning");
-      return;
+      ctx.ui.notify("Usage: /suba <task>", "warning")
+      return
     }
-    task = (await ctx.ui.editor("Subagent task", ""))?.trim() ?? "";
+    task = (await ctx.ui.editor("Subagent task", ""))?.trim() ?? ""
   }
-  if (!task) return;
+  if (!task) return
 
-  const prompt = subaDelegationPrompt(task);
+  const prompt = subaDelegationPrompt(task)
   if (ctx.isIdle()) {
-    pi.sendUserMessage(prompt);
-    return;
+    pi.sendUserMessage(prompt)
+    return
   }
-  pi.sendUserMessage(prompt, { deliverAs: "followUp" });
-  ctx.ui.notify("Subagent request queued", "info");
+  pi.sendUserMessage(prompt, { deliverAs: "followUp" })
+  ctx.ui.notify("Subagent request queued", "info")
 }
 
 export function registerCommands(pi: ExtensionAPI): void {
   pi.registerCommand("suba", {
     description: "Delegate work to one or more subagents",
     handler: (args, ctx) => runSubaCommand(pi, args, ctx),
-  });
+  })
 }
