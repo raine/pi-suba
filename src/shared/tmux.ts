@@ -22,6 +22,36 @@ export const tmuxExec: TmuxExec = async (args, input) => {
 
 function safeWindowName(name: string): string { return name.replace(/[^A-Za-z0-9_.-]+/g, "-").slice(0, 30) || "subagent"; }
 
+export function subaWindowName(name: string): string {
+  const safe = safeWindowName(name);
+  if (safe === "suba" || safe.startsWith("suba-")) return safe;
+  return safeWindowName(`suba-${safe}`);
+}
+
+async function pinWindowName(target: string, name: string, run: TmuxExec): Promise<void> {
+  await run(["set-option", "-w", "-t", target, "automatic-rename", "off"]);
+  await run(["set-option", "-w", "-t", target, "allow-rename", "off"]);
+  await run(["rename-window", "-t", target, name]);
+}
+
+let sharedWindowQueue = Promise.resolve();
+async function withSharedWindowLock<T>(action: () => Promise<T>): Promise<T> {
+  const previous = sharedWindowQueue;
+  let release = () => {};
+  sharedWindowQueue = new Promise<void>((resolve) => { release = resolve; });
+  await previous;
+  try { return await action(); } finally { release(); }
+}
+
+async function findWindow(sessionId: string, name: string, run: TmuxExec): Promise<string | undefined> {
+  const windows = await run(["list-windows", "-t", sessionId, "-F", "#{window_id}\t#{window_name}"]);
+  for (const line of windows.split("\n")) {
+    const separator = line.indexOf("\t");
+    if (separator > 0 && line.slice(separator + 1) === name) return line.slice(0, separator);
+  }
+  return undefined;
+}
+
 export async function createTarget(placement: Placement, parentPane: string, command: string, displayName: string, sharedDefault: string, run = tmuxExec): Promise<TmuxTarget> {
   if (placement.type === "split") {
     const geometry = await run(["display-message", "-p", "-t", parentPane, "#{pane_width} #{pane_height}"]);
@@ -31,21 +61,27 @@ export async function createTarget(placement: Placement, parentPane: string, com
     return { paneId, placement };
   }
   if (placement.type === "window") {
-    const paneId = await run(["new-window", "-d", "-P", "-F", "#{pane_id}", "-n", safeWindowName(placement.windowName ?? displayName), command]);
+    const windowName = subaWindowName(placement.windowName ?? displayName);
+    const sessionId = await run(["display-message", "-p", "-t", parentPane, "#{session_id}"]);
+    const paneId = await run(["new-window", "-d", "-P", "-F", "#{pane_id}", "-n", windowName, "-t", sessionId, command]);
+    await pinWindowName(paneId, windowName, run);
     return { paneId, placement };
   }
-  const windowName = safeWindowName(placement.windowName ?? sharedDefault);
-  let windowId = "";
-  try { windowId = await run(["display-message", "-p", "-t", `:${windowName}`, "#{window_id}"]); } catch { /* create below */ }
-  let paneId: string;
-  if (!windowId) {
-    paneId = await run(["new-window", "-d", "-P", "-F", "#{pane_id}", "-n", windowName, command]);
-    windowId = await run(["display-message", "-p", "-t", paneId, "#{window_id}"]);
-  } else {
-    paneId = await run(["split-window", "-d", "-P", "-F", "#{pane_id}", "-t", windowId, command]);
-    await run(["select-layout", "-t", windowId, "tiled"]);
-  }
-  return { paneId, placement, windowId };
+  return withSharedWindowLock(async () => {
+    const windowName = subaWindowName(placement.windowName ?? sharedDefault);
+    const sessionId = await run(["display-message", "-p", "-t", parentPane, "#{session_id}"]);
+    let windowId = await findWindow(sessionId, windowName, run);
+    let paneId: string;
+    if (!windowId) {
+      paneId = await run(["new-window", "-d", "-P", "-F", "#{pane_id}", "-n", windowName, "-t", sessionId, command]);
+      await pinWindowName(paneId, windowName, run);
+      windowId = await run(["display-message", "-p", "-t", paneId, "#{window_id}"]);
+    } else {
+      paneId = await run(["split-window", "-d", "-P", "-F", "#{pane_id}", "-t", windowId, command]);
+      await run(["select-layout", "-t", windowId, "tiled"]);
+    }
+    return { paneId, placement, windowId };
+  });
 }
 
 export async function paneExists(paneId: string, run = tmuxExec): Promise<boolean> {
