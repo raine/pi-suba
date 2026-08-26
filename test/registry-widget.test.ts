@@ -1,0 +1,19 @@
+import { describe, expect, it } from "vitest";
+import { nextRevision, restoreRegistry, type ChildRecord } from "../src/parent/registry.ts";
+import { projectWidgetRows } from "../src/parent/widget.ts";
+
+const record = (revision: number): ChildRecord => ({ id: "a1", revision, state: "running", sessionFile: "/s", artifactDir: "/a", placement: { type: "split" }, name: "auth-tests", cwd: "/w", profile: "default", resolvedLaunch: { profile: "default", tools: "default", loadContext: true, loadSkills: true, systemPrompt: "append", autoComplete: true, model: "anthropic/claude-sonnet-4-6", thinking: "medium" }, lastEventSequence: 0, startedAt: 0, resultAfterEntry: 1 });
+
+describe("registry and widget", () => {
+  it("restores the highest revision", () => {
+    const restored = restoreRegistry([{ type: "custom", customType: "suba-child", data: record(1) }, { type: "custom", customType: "suba-child", data: record(3) }]);
+    expect(restored.get("a1")?.revision).toBe(3);
+    expect(nextRevision(record(3), { state: "completed" }).revision).toBe(4);
+  });
+  it("caps rows and marks stale activity", () => {
+    const first = record(1); first.activity = { version: 1, childId: "a1", sequence: 1, updatedAt: 1, state: "working", activity: "tool", toolName: "bash" };
+    const second = { ...record(1), id: "b2", name: "review" };
+    const rows = projectWidgetRows([first, second], 20_000, 1000, 1);
+    expect(rows.join("\n")).toContain("bash stale"); expect(rows.at(-1)).toBe("+1 more");
+  });
+});
