@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/cua-common
+source "$script_dir/lib/cua-common"
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/cua-fixtures <session>
+
+Install deterministic pi-suba configuration, profiles, project resources, and
+invalid-input fixtures inside a deployed Cua sandbox.
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
+session_name="$(require_session_name "${1:-}")"
+container="$(session_container "$session_name")"
+require_running_container "$container"
+
+exec_user "$container" bash -lc "
+  set -euo pipefail
+  rm -rf '$container_fixture_root' '$container_artifact_root' /home/user/work/pi-suba-observed
+  mkdir -p '$container_fixture_root' '$container_artifact_root' /home/user/work/pi-suba-observed
+  cp -a '$container_project_root/test/fixtures/cua-project/.' '$container_fixture_root/'
+  rm -rf \"\$HOME/.pi/suba\"
+  mkdir -p \"\$HOME/.pi/suba/profiles\" \"\$HOME/work/pi-suba-invalid\"
+  cp '$container_project_root/test/fixtures/cua-config/suba.json' \"\$HOME/.pi/suba.json\"
+  cp '$container_project_root/test/fixtures/cua-config/profiles/'*.md \"\$HOME/.pi/suba/profiles/\"
+  printf '%s\n' '{\"activity\":{\"pollMs\":10}}' > \"\$HOME/work/pi-suba-invalid/suba.json\"
+  cat > \"\$HOME/work/pi-suba-invalid/profile.md\" <<'PROFILE'
+---
+name: invalid
+tools: read,write
+---
+Invalid profile fixture.
+PROFILE
+  cat > \"\$HOME/.tmux.conf\" <<'TMUX'
+set -g extended-keys on
+set -g focus-events on
+TMUX
+  chmod 600 \"\$HOME/.pi/suba.json\" \"\$HOME/.pi/suba/profiles/\"*.md
+"
+printf 'Installed Cua fixtures in %s\n' "$container"

@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { existsSync } from "node:fs";
+import { accessSync, constants, existsSync } from "node:fs";
 import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -40,7 +40,9 @@ function resolveLaunch(config: SubaConfig, profile: Profile, overrides: { model?
   };
 }
 function uniqueId(records: Map<string, ChildRecord>): string { let id: string; do id = randomBytes(4).toString("hex"); while (records.has(id)); return id; }
-function invocation(): string {
+export function invocation(): string {
+  const override = process.env.SUBA_PI_EXECUTABLE?.trim();
+  if (override) return shellQuote(resolve(override));
   const script = process.argv[1];
   if (script && !script.startsWith("/$bunfs/root/") && existsSync(script) && script !== process.execPath) {
     return `${shellQuote(process.execPath)} ${shellQuote(script)}`;
@@ -58,11 +60,18 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
     const parentPane = process.env.TMUX_PANE;
     if (!parentPane) throw new Error("pi-suba requires the parent Pi session to run inside tmux (TMUX_PANE is unset)");
     try { await tmuxExec(["-V"]); } catch { throw new Error("pi-suba requires tmux on PATH"); }
+    if (process.env.SUBA_PI_EXECUTABLE?.trim()) {
+      try { accessSync(resolve(process.env.SUBA_PI_EXECUTABLE), constants.X_OK); }
+      catch { throw new Error(`SUBA_PI_EXECUTABLE is not executable: ${process.env.SUBA_PI_EXECUTABLE}`); }
+    }
     const profile = resume ? host.profiles.get(resume.profile) : host.profiles.get(params.profile ?? host.config.defaultProfile);
     if (!profile && !resume) throw new Error(`Unknown subagent profile: ${params.profile ?? host.config.defaultProfile}`);
     const id = resume?.id ?? uniqueId(host.records);
     const cwd = resume?.cwd ?? resolve(ctx.cwd, params.cwd ?? ".");
-    const artifactDir = resume?.artifactDir ?? join(homedir(), ".pi", "suba", ctx.sessionManager.getSessionId(), id);
+    const artifactRoot = process.env.SUBA_ARTIFACT_ROOT?.trim()
+      ? resolve(process.env.SUBA_ARTIFACT_ROOT)
+      : join(homedir(), ".pi", "suba");
+    const artifactDir = resume?.artifactDir ?? join(artifactRoot, ctx.sessionManager.getSessionId(), id);
     const sessionFile = resume?.sessionFile ?? join(artifactDir, "session.jsonl");
     await mkdir(join(artifactDir, "events"), { recursive: true });
     let resultAfterEntry = 0;

@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/cua-common
+source "$script_dir/lib/cua-common"
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/cua-clean <session>
+
+Remove project processes, deployment files, fixtures, artifacts, package
+configuration, sessions, and copied credentials from the Cua container.
+The Cua session itself remains running for inspection or explicit shutdown.
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
+session_name="$(require_session_name "${1:-}")"
+container="$(session_container "$session_name")"
+require_running_container "$container"
+exec_user "$container" tmux kill-session -t "$container_tmux_session" 2>/dev/null || true
+exec_user "$container" bash -lc "
+  rm -rf \
+    '$container_project_root' \
+    '$container_fixture_root' \
+    '$container_artifact_root' \
+    /home/user/work/pi-suba-observed \
+    \"\$HOME/.pi/suba\" \
+    \"\$HOME/.pi/suba.json\" \
+    \"\$HOME/.pi/agent/sessions\" \
+    \"\$HOME/.pi/agent/auth.json\" \
+    \"\$HOME/.pi/agent/models.json\" \
+    \"\$HOME/.config/pi-suba-test\"
+"
+echo "Removed pi-suba test state and credentials from $container"

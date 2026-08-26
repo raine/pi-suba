@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mode="${SUBA_CUA_MODE:?SUBA_CUA_MODE is required}"
+model="${SUBA_TEST_MODEL:?SUBA_TEST_MODEL is required}"
+project_root="/home/user/work/pi-suba"
+fixture_root="/home/user/work/pi-suba-fixture"
+artifact_root="/home/user/work/pi-suba-artifacts"
+tmux_session="pi-suba-cua"
+export SUBA_ARTIFACT_ROOT="$artifact_root"
+export SUBA_ISOLATION_MARKER="/home/user/work/pi-suba-observed/extension-loads.txt"
+if [[ "$mode" == "fake" ]]; then
+  export SUBA_PI_EXECUTABLE="$project_root/test/fixtures/fake-pi"
+else
+  unset SUBA_PI_EXECUTABLE
+fi
+
+mkdir -p "$artifact_root" "$(dirname "$SUBA_ISOLATION_MARKER")"
+cd "$fixture_root"
+exec tmux new-session -s "$tmux_session" -n parent \
+  "pi --approve --model '$model'"

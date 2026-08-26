@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/cua-common
+source "$script_dir/lib/cua-common"
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/cua-launch <session> <fake|real> [model]
+
+Launch Kitty and a named parent Pi tmux session in the Cua desktop.
+
+fake  Parent Pi uses the selected real model while child launches use fake-pi.
+real  Parent and child Pi sessions use the selected real model.
+
+The model defaults to openai-codex/gpt-5.6-luna and must use the openai-codex
+provider so authentication remains on the copied OAuth credential.
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
+session_name="$(require_session_name "${1:-}")"
+mode="${2:-}"
+model="${3:-${SUBA_TEST_MODEL:-openai-codex/gpt-5.6-luna}}"
+if [[ "$mode" != "fake" && "$mode" != "real" ]]; then
+  echo "launch mode must be fake or real" >&2
+  exit 1
+fi
+if [[ "$model" != openai-codex/* ]]; then
+  echo "the Cua sandbox model must use the openai-codex provider" >&2
+  exit 1
+fi
+container="$(session_container "$session_name")"
+require_running_container "$container"
+
+exec_user "$container" tmux kill-session -t "$container_tmux_session" 2>/dev/null || true
+exec_user "$container" rm -rf "$container_artifact_root" /home/user/work/pi-suba-observed
+exec_user "$container" mkdir -p "$container_artifact_root" /home/user/work/pi-suba-observed
+
+docker exec --detach --user user \
+  --env DISPLAY=:100 \
+  --env "SUBA_CUA_MODE=$mode" \
+  --env "SUBA_TEST_MODEL=$model" \
+  "$container" \
+  kitty \
+    --override initial_window_width=120c \
+    --override initial_window_height=40c \
+    --title "pi-suba Cua" \
+    "$container_project_root/scripts/lib/cua-parent-entry"
+
+deadline=$((SECONDS + 20))
+while ((SECONDS < deadline)); do
+  if exec_user "$container" tmux has-session -t "$container_tmux_session" 2>/dev/null; then
+    pane_id="$(exec_user "$container" tmux display-message -p -t "$container_tmux_session" '#{pane_id}')"
+    printf 'Parent Pi is running in %s, tmux pane %s, mode %s\n' "$container" "$pane_id" "$mode"
+    exit 0
+  fi
+  sleep 0.25
+done
+
+echo "Kitty launched but the parent tmux session did not become ready" >&2
+exit 1

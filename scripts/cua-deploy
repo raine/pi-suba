@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/cua-common
+source "$script_dir/lib/cua-common"
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/cua-deploy <session>
+
+Copy the working tree into a running Cua sandbox, install dependencies, run
+verification, and install pi-suba as a local Pi package.
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
+require_command cua-sandbox
+require_command docker
+session_name="$(require_session_name "${1:-}")"
+container="$(session_container "$session_name")"
+require_running_container "$container"
+
+exec_user "$container" bash -lc \
+  "rm -rf '$container_project_root' && mkdir -p '$container_project_root'"
+COPYFILE_DISABLE=1 tar \
+  --no-xattrs \
+  --exclude='./.git' \
+  --exclude='./node_modules' \
+  --exclude='./coverage' \
+  --exclude='./*.tgz' \
+  -C "$project_root" -cf - . \
+  | docker exec --interactive --user user "$container" \
+      tar -C "$container_project_root" -xf -
+
+exec_user "$container" bash -lc \
+  "cd '$container_project_root' && npm ci && npm run check && npm test && pi install '$container_project_root'"
+printf 'Deployed pi-suba to %s:%s\n' "$container" "$container_project_root"

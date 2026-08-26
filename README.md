@@ -60,3 +60,6 @@ npm install
 npm test
 npm run check
 ```
+
+Cua sandbox helpers provide deterministic desktop testing with fake child Pi
+processes and optional real-model smoke coverage. See `CUA_SANDBOX.md`.

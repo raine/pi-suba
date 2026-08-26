@@ -1,0 +1,212 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+session_file="${SUBA_SESSION_FILE:-}"
+artifact_dir="${SUBA_ARTIFACT_DIR:-}"
+child_id="${SUBA_CHILD_ID:-}"
+model="fake/test-model"
+thinking="minimal"
+task=""
+original_args=("$@")
+
+while (($# > 0)); do
+  case "$1" in
+    --session)
+      session_file="$2"
+      shift 2
+      ;;
+    --model)
+      model="$2"
+      shift 2
+      ;;
+    --thinking)
+      thinking="$2"
+      shift 2
+      ;;
+    -e|--extension|--tools|--name|--system-prompt|--append-system-prompt)
+      shift 2
+      ;;
+    --no-extensions|--no-context-files|--no-skills)
+      shift
+      ;;
+    *)
+      task="$1"
+      shift
+      ;;
+  esac
+done
+
+if [[ -z "$session_file" || -z "$artifact_dir" || -z "$child_id" ]]; then
+  echo "fake-pi requires SUBA_SESSION_FILE, SUBA_ARTIFACT_DIR, and SUBA_CHILD_ID" >&2
+  exit 64
+fi
+
+mkdir -p "$artifact_dir/events"
+
+record_launch() {
+  node - "$artifact_dir/launch-arguments.json" "$session_file" "$model" "$thinking" "$task" "${original_args[@]}" <<'NODE'
+const fs = require("node:fs");
+const [path, sessionFile, model, thinking, task, ...args] = process.argv.slice(2);
+const value = {
+  version: 1,
+  sessionFile,
+  model,
+  thinking,
+  task,
+  args,
+  environment: {
+    childId: process.env.SUBA_CHILD_ID,
+    artifactDir: process.env.SUBA_ARTIFACT_DIR,
+    autoComplete: process.env.SUBA_AUTO_COMPLETE,
+  },
+};
+fs.writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+NODE
+}
+
+write_activity() {
+  local state="$1"
+  local activity="${2:-}"
+  local tool_name="${3:-}"
+  node - "$artifact_dir/activity.json" "$child_id" "$state" "$activity" "$tool_name" "$model" "$thinking" <<'NODE'
+const fs = require("node:fs");
+const [path, childId, state, activity, toolName, modelValue, thinking] = process.argv.slice(2);
+let sequence = 0;
+try { sequence = JSON.parse(fs.readFileSync(path, "utf8")).sequence ?? 0; } catch {}
+const slash = modelValue.indexOf("/");
+const value = {
+  version: 1,
+  childId,
+  sequence: sequence + 1,
+  updatedAt: Date.now(),
+  state,
+  ...(activity ? { activity } : {}),
+  ...(toolName ? { toolName } : {}),
+  activityStartedAt: Date.now(),
+  provider: slash < 0 ? "fake" : modelValue.slice(0, slash),
+  model: slash < 0 ? modelValue : modelValue.slice(slash + 1),
+  thinking,
+};
+const temporary = `${path}.${process.pid}.tmp`;
+fs.writeFileSync(temporary, `${JSON.stringify(value)}\n`, { mode: 0o600 });
+fs.renameSync(temporary, path);
+NODE
+}
+
+write_event() {
+  local event_type="$1"
+  local payload="${2:-}"
+  node - "$artifact_dir" "$child_id" "$event_type" "$payload" <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+const [artifactDir, childId, type, payload] = process.argv.slice(2);
+const eventsDir = path.join(artifactDir, "events");
+fs.mkdirSync(eventsDir, { recursive: true });
+const sequences = fs.readdirSync(eventsDir)
+  .map((name) => Number.parseInt(name.slice(0, 6), 10))
+  .filter(Number.isFinite);
+const sequence = Math.max(0, ...sequences) + 1;
+const event = {
+  version: 1,
+  childId,
+  sequence,
+  timestamp: Date.now(),
+  type,
+  ...(type === "ping" ? { message: payload } : {}),
+  ...(type === "failed" ? { error: payload } : {}),
+};
+const basename = `${String(sequence).padStart(6, "0")}-${type}.json`;
+const destination = path.join(eventsDir, basename);
+const temporary = `${destination}.${process.pid}.tmp`;
+fs.writeFileSync(temporary, `${JSON.stringify(event)}\n`, { mode: 0o600 });
+fs.renameSync(temporary, destination);
+NODE
+}
+
+append_assistant() {
+  local text="$1"
+  local stop_reason="${2:-stop}"
+  local error_message="${3:-}"
+  node - "$session_file" "$text" "$stop_reason" "$error_message" "$model" <<'NODE'
+const crypto = require("node:crypto");
+const fs = require("node:fs");
+const [path, text, stopReason, errorMessage, modelValue] = process.argv.slice(2);
+const lines = fs.readFileSync(path, "utf8").split("\n").filter(Boolean);
+const previous = lines.length > 1 ? JSON.parse(lines.at(-1)) : undefined;
+const slash = modelValue.indexOf("/");
+const entry = {
+  type: "message",
+  id: crypto.randomBytes(4).toString("hex"),
+  parentId: previous?.id ?? null,
+  timestamp: new Date().toISOString(),
+  message: {
+    role: "assistant",
+    content: text ? [{ type: "text", text }] : [],
+    api: "fake",
+    provider: slash < 0 ? "fake" : modelValue.slice(0, slash),
+    model: slash < 0 ? modelValue : modelValue.slice(slash + 1),
+    usage: {
+      input: 1,
+      output: 1,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 2,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    },
+    stopReason,
+    ...(errorMessage ? { errorMessage } : {}),
+    timestamp: Date.now(),
+  },
+};
+fs.appendFileSync(path, `${JSON.stringify(entry)}\n`);
+NODE
+}
+
+record_launch
+write_activity "starting"
+write_activity "working" "model"
+
+case "$task" in
+  *"[fake:ping]"*)
+    write_activity "waiting"
+    write_event "ping" "Which test guidance should I follow?"
+    guidance=""
+    if IFS= read -r first_line; then
+      guidance="$first_line"
+      while IFS= read -r -t 0.2 next_line; do
+        guidance+=$'\n'"$next_line"
+      done
+    fi
+    printf '%s\n' "$guidance" > "$artifact_dir/received-guidance.txt"
+    write_activity "working" "streaming"
+    append_assistant "fake guidance received: $guidance"
+    write_activity "done"
+    write_event "completed"
+    ;;
+  *"[fake:fail-event]"*)
+    append_assistant "" "error" "deterministic fake provider failure"
+    write_activity "done"
+    write_event "failed" "deterministic fake provider failure"
+    ;;
+  *"[fake:exit-nonzero]"*)
+    append_assistant "fake process exits without a structured event"
+    write_activity "done"
+    exit 23
+    ;;
+  *"[fake:stay]"*)
+    write_activity "working" "tool" "bash"
+    trap 'exit 130' HUP INT TERM
+    while :; do sleep 1; done
+    ;;
+  *"[fake:explicit]"*)
+    append_assistant "fake explicit completion"
+    write_activity "done"
+    write_event "completed"
+    ;;
+  *)
+    write_activity "working" "tool" "read"
+    append_assistant "fake completed: $task"
+    write_activity "done"
+    write_event "completed"
+    ;;
+esac

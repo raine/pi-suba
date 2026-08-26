@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# shellcheck disable=SC2034
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck disable=SC2034
+container_project_root="/home/user/work/pi-suba"
+# shellcheck disable=SC2034
+container_fixture_root="/home/user/work/pi-suba-fixture"
+# shellcheck disable=SC2034
+container_artifact_root="/home/user/work/pi-suba-artifacts"
+# shellcheck disable=SC2034
+container_tmux_session="pi-suba-cua"
+
+require_command() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    printf 'missing required command: %s\n' "$1" >&2
+    exit 1
+  fi
+}
+
+require_session_name() {
+  local session_name="${1:-}"
+  if [[ -z "$session_name" ]]; then
+    echo "a Cua session name is required" >&2
+    exit 1
+  fi
+  if [[ ! "$session_name" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
+    printf 'invalid Cua session name: %s\n' "$session_name" >&2
+    exit 1
+  fi
+  printf '%s\n' "$session_name"
+}
+
+session_container() {
+  local session_name="$1"
+  cua-sandbox container "$session_name"
+}
+
+require_running_container() {
+  local container="$1"
+  local state
+  state="$(docker inspect --format '{{.State.Status}}' "$container" 2>/dev/null || true)"
+  if [[ "$state" != "running" ]]; then
+    printf 'Cua container is not running: %s\n' "$container" >&2
+    exit 1
+  fi
+}
+
+exec_user() {
+  local container="$1"
+  shift
+  docker exec --user user "$container" "$@"
+}

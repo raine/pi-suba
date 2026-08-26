@@ -1,0 +1,13 @@
+{
+  "defaultProfile": "default",
+  "model": "openai-codex/gpt-5.6-luna",
+  "thinking": "minimal",
+  "placement": { "type": "split" },
+  "autoComplete": true,
+  "activity": {
+    "pollMs": 200,
+    "staleAfterMs": 1000,
+    "maxRows": 3
+  },
+  "sharedWindowName": "suba-cua"
+}

@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/cua-common
+source "$script_dir/lib/cua-common"
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/cua-assert <session> [child-id]
+
+Print bounded tmux, isolation, registry-artifact, activity, event, process, and
+session information for the current Cua test run. No credentials are read.
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
+session_name="$(require_session_name "${1:-}")"
+child_id="${2:-}"
+container="$(session_container "$session_name")"
+require_running_container "$container"
+
+docker exec --interactive --user user "$container" \
+  bash -s -- "$container_artifact_root" "$child_id" <<'EOF'
+set -euo pipefail
+artifact_root="$1"
+child_id="$2"
+
+echo "== tmux panes =="
+tmux list-panes -a -F '#{session_name} #{window_id} #{pane_id} #{pane_width}x#{pane_height} #{pane_current_command}' 2>/dev/null || true
+
+echo
+echo "== extension isolation marker =="
+cat /home/user/work/pi-suba-observed/extension-loads.txt 2>/dev/null || echo "(missing)"
+
+echo
+echo "== child artifacts =="
+if [[ -n "$child_id" ]]; then
+  child_dirs=("$(find "$artifact_root" -type d -name "$child_id" -print -quit)")
+else
+  mapfile -t child_dirs < <(find "$artifact_root" -mindepth 2 -maxdepth 2 -type d | sort)
+fi
+if ((${#child_dirs[@]} == 0)) || [[ -z "${child_dirs[0]}" ]]; then
+  echo "(none)"
+  exit 0
+fi
+for child_dir in "${child_dirs[@]}"; do
+  echo "-- $child_dir"
+  for file in activity.json process-exit launch-arguments.json received-guidance.txt; do
+    if [[ -f "$child_dir/$file" ]]; then
+      echo "[$file]"
+      head -c 12000 "$child_dir/$file"
+      echo
+    fi
+  done
+  if [[ -d "$child_dir/events" ]]; then
+    echo "[events]"
+    find "$child_dir/events" -type f -name '*.json' -maxdepth 1 -print0 \
+      | sort -z \
+      | xargs -0 -r -n1 sh -c 'echo "--- $1"; cat "$1"' sh
+  fi
+  if [[ -f "$child_dir/session.jsonl" ]]; then
+    echo "[session tail]"
+    tail -n 8 "$child_dir/session.jsonl"
+  fi
+done
+EOF

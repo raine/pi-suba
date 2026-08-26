@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/cua-common
+source "$script_dir/lib/cua-common"
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/cua-config <session> <valid|invalid-config|invalid-profile>
+
+Switch the sandbox between the canonical fixture configuration and bounded
+configuration or profile validation failures. Reload or relaunch Pi afterward.
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
+session_name="$(require_session_name "${1:-}")"
+variant="${2:-}"
+container="$(session_container "$session_name")"
+require_running_container "$container"
+
+case "$variant" in
+  valid)
+    exec_user "$container" bash -lc "
+      cp '$container_project_root/test/fixtures/cua-config/suba.json' \"\$HOME/.pi/suba.json\"
+      rm -rf \"\$HOME/.pi/suba/profiles\"
+      mkdir -p \"\$HOME/.pi/suba/profiles\"
+      cp '$container_project_root/test/fixtures/cua-config/profiles/'*.md \"\$HOME/.pi/suba/profiles/\"
+    "
+    ;;
+  invalid-config)
+    exec_user "$container" cp /home/user/work/pi-suba-invalid/suba.json /home/user/.pi/suba.json
+    ;;
+  invalid-profile)
+    exec_user "$container" cp /home/user/work/pi-suba-invalid/profile.md /home/user/.pi/suba/profiles/invalid.md
+    ;;
+  *)
+    echo "configuration variant must be valid, invalid-config, or invalid-profile" >&2
+    exit 1
+    ;;
+esac
+printf 'Activated %s in %s\n' "$variant" "$container"

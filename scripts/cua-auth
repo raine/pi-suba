@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/cua-common
+source "$script_dir/lib/cua-common"
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/cua-auth <session> [copy|clear]
+
+copy   Copy the host Pi auth store into the disposable Cua container and verify
+       OpenAI Codex OAuth readiness. This is the default.
+clear  Remove copied credentials from the Cua container.
+
+Credential values are never printed. The sandbox container must remain private.
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
+session_name="$(require_session_name "${1:-}")"
+action="${2:-copy}"
+container="$(session_container "$session_name")"
+require_running_container "$container"
+host_agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+container_agent_dir="/home/user/.pi/agent"
+
+case "$action" in
+  copy)
+    exec_user "$container" bash -lc \
+      "mkdir -p '$container_agent_dir' && chmod 700 '$container_agent_dir'"
+    if [[ -f "$host_agent_dir/auth.json" ]]; then
+      docker cp "$host_agent_dir/auth.json" "$container:$container_agent_dir/auth.json"
+      docker exec --user root "$container" chown user:user "$container_agent_dir/auth.json"
+      exec_user "$container" chmod 600 "$container_agent_dir/auth.json"
+    fi
+    if [[ -f "$host_agent_dir/models.json" ]]; then
+      docker cp "$host_agent_dir/models.json" "$container:$container_agent_dir/models.json"
+      docker exec --user root "$container" chown user:user "$container_agent_dir/models.json"
+      exec_user "$container" chmod 600 "$container_agent_dir/models.json"
+    fi
+    auth_status="$(exec_user "$container" pi auth check --provider openai-codex --json --no-refresh)"
+    if [[ "$auth_status" != *'"status":"ready"'* ]]; then
+      echo "OpenAI Codex OAuth is unavailable in $container" >&2
+      exit 1
+    fi
+    echo "Copied Pi credentials and verified OpenAI Codex OAuth in $container"
+    ;;
+  clear)
+    exec_user "$container" rm -f \
+      "$container_agent_dir/auth.json" \
+      "$container_agent_dir/models.json"
+    echo "Removed copied Pi credentials from $container"
+    ;;
+  *)
+    printf 'unknown action: %s\n' "$action" >&2
+    usage >&2
+    exit 1
+    ;;
+esac
