@@ -30,9 +30,10 @@ exec_user "$container" bash -lc "
   cp -a '$container_project_root/test/fixtures/cua-project/.' '$container_fixture_root/'
   rm -rf \"\$HOME/.pi/suba\"
   mkdir -p \"\$HOME/.pi/suba/profiles\" \"\$HOME/work/pi-suba-invalid\"
-  cp '$container_project_root/test/fixtures/cua-config/suba.json' \"\$HOME/.pi/suba.json\"
+  cp '$container_project_root/test/fixtures/cua-config/config.json' \"\$HOME/.pi/suba/config.json\"
+  cp '$container_project_root/test/fixtures/cua-config/instructions.md' \"\$HOME/.pi/suba/instructions.md\"
   cp '$container_project_root/test/fixtures/cua-config/profiles/'*.md \"\$HOME/.pi/suba/profiles/\"
-  printf '%s\n' '{\"activity\":{\"pollMs\":10}}' > \"\$HOME/work/pi-suba-invalid/suba.json\"
+  printf '%s\n' '{\"activity\":{\"pollMs\":10}}' > \"\$HOME/work/pi-suba-invalid/config.json\"
   cat > \"\$HOME/work/pi-suba-invalid/profile.md\" <<'PROFILE'
 ---
 name: invalid
@@ -44,6 +45,6 @@ PROFILE
 set -g extended-keys on
 set -g focus-events on
 TMUX
-  chmod 600 \"\$HOME/.pi/suba.json\" \"\$HOME/.pi/suba/profiles/\"*.md
+  chmod 600 \"\$HOME/.pi/suba/config.json\" \"\$HOME/.pi/suba/instructions.md\" \"\$HOME/.pi/suba/profiles/\"*.md
 "
 printf 'Installed Cua fixtures in %s\n' "$container"

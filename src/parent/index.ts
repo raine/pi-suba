@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { loadConfig, type SubaConfig } from "../shared/config.ts";
+import { loadInstructions } from "../shared/instructions.ts";
 import { loadProfiles, type Profile } from "../shared/profiles.ts";
 import { tmuxExec } from "../shared/tmux.ts";
 import { registerTools, type ManagerHost } from "./tools.ts";
@@ -10,6 +11,7 @@ import { ActivityWidget, projectWidgetRows } from "./widget.ts";
 
 export default async function (pi: ExtensionAPI) {
   let config: SubaConfig = await loadConfig();
+  let instructions = await loadInstructions();
   let profiles: Map<string, Profile> = await loadProfiles();
   const records = new Map<string, ChildRecord>();
   let latestCtx: ExtensionContext | undefined;
@@ -43,8 +45,12 @@ export default async function (pi: ExtensionAPI) {
     const color = state === "completed" ? "success" : state === "awaiting-parent" ? "warning" : "error";
     return new Text(theme.fg(color, typeof message.content === "string" ? message.content : JSON.stringify(message.content)), 1, 0);
   });
+  pi.on("before_agent_start", (event) => {
+    if (!instructions) return;
+    return { systemPrompt: `${event.systemPrompt}\n\n${instructions}` };
+  });
   pi.on("session_start", async (_event, ctx) => {
-    latestCtx = ctx; config = await loadConfig(); profiles = await loadProfiles(); host.config = config; host.profiles = profiles;
+    latestCtx = ctx; config = await loadConfig(); instructions = await loadInstructions(); profiles = await loadProfiles(); host.config = config; host.profiles = profiles;
     records.clear(); for (const [id, record] of restoreRegistry(ctx.sessionManager.getEntries())) records.set(id, record);
     for (const record of records.values()) if (isLive(record)) void watcher.check(record.id);
     watcher.start(); refreshWidget();

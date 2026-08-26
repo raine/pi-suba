@@ -27,14 +27,15 @@ require_running_container "$container"
 case "$variant" in
   valid)
     exec_user "$container" bash -lc "
-      cp '$container_project_root/test/fixtures/cua-config/suba.json' \"\$HOME/.pi/suba.json\"
+      cp '$container_project_root/test/fixtures/cua-config/config.json' \"\$HOME/.pi/suba/config.json\"
+      cp '$container_project_root/test/fixtures/cua-config/instructions.md' \"\$HOME/.pi/suba/instructions.md\"
       rm -rf \"\$HOME/.pi/suba/profiles\"
       mkdir -p \"\$HOME/.pi/suba/profiles\"
       cp '$container_project_root/test/fixtures/cua-config/profiles/'*.md \"\$HOME/.pi/suba/profiles/\"
     "
     ;;
   invalid-config)
-    exec_user "$container" cp /home/user/work/pi-suba-invalid/suba.json /home/user/.pi/suba.json
+    exec_user "$container" cp /home/user/work/pi-suba-invalid/config.json /home/user/.pi/suba/config.json
     ;;
   invalid-profile)
     exec_user "$container" cp /home/user/work/pi-suba-invalid/profile.md /home/user/.pi/suba/profiles/invalid.md

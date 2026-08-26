@@ -31,7 +31,6 @@ exec_user "$container" bash -lc "
     '$container_artifact_root' \
     /home/user/work/pi-suba-observed \
     \"\$HOME/.pi/suba\" \
-    \"\$HOME/.pi/suba.json\" \
     \"\$HOME/.pi/agent/sessions\" \
     \"\$HOME/.pi/agent/auth.json\" \
     \"\$HOME/.pi/agent/models.json\" \

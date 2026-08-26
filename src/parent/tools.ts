@@ -17,7 +17,8 @@ import type { ChildRecord, ResolvedLaunch } from "./registry.ts";
 import { isLive } from "./registry.ts";
 
 const PlacementSchema = Type.Object({ type: StringEnum(["split", "window", "shared-window"] as const), windowName: Type.Optional(Type.String()) });
-const ThinkingSchema = StringEnum(THINKING_LEVELS);
+const ThinkingSchema = StringEnum(THINKING_LEVELS, { description: "Thinking level paired with an explicit model choice. Omit it to use the configured default." });
+const ModelSchema = Type.String({ description: "Fully qualified provider/model identifier. Omit it to use the configured default." });
 const shellQuote = (value: string) => `'${value.replaceAll("'", `'\"'\"'`)}'`;
 const CONTROL_PROMPT = `You are a delegated Pi subagent. Complete the assigned task independently. Use caller_ping only when parent guidance is required. Use subagent_done to finish immediately. Automatic completion ends a settled run when enabled.`;
 
@@ -40,6 +41,20 @@ function resolveLaunch(config: SubaConfig, profile: Profile, overrides: { model?
   };
 }
 function uniqueId(records: Map<string, ChildRecord>): string { let id: string; do id = randomBytes(4).toString("hex"); while (records.has(id)); return id; }
+export function parseQualifiedModel(value: string): { provider: string; modelId: string } {
+  const separator = value.indexOf("/");
+  if (separator <= 0 || separator === value.length - 1 || /\s/.test(value)) {
+    throw new Error(`Subagent model must use a fully qualified provider/model identifier: ${value}`);
+  }
+  return { provider: value.slice(0, separator), modelId: value.slice(separator + 1) };
+}
+function validateModel(model: string, ctx: ExtensionContext): void {
+  const parsed = parseQualifiedModel(model);
+  if (!ctx.modelRegistry.find(parsed.provider, parsed.modelId)) throw new Error(`Subagent model is unavailable: ${model}`);
+  if (ctx.scopedModels.length > 0 && !ctx.scopedModels.some((entry) => entry.model.provider === parsed.provider && entry.model.id === parsed.modelId)) {
+    throw new Error(`Subagent model is outside the enabled model scope: ${model}`);
+  }
+}
 export function invocation(): string {
   const override = process.env.SUBA_PI_EXECUTABLE?.trim();
   if (override) return shellQuote(resolve(override));
@@ -66,6 +81,10 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
     }
     const profile = resume ? host.profiles.get(resume.profile) : host.profiles.get(params.profile ?? host.config.defaultProfile);
     if (!profile && !resume) throw new Error(`Unknown subagent profile: ${params.profile ?? host.config.defaultProfile}`);
+    const resolvedLaunch = resume
+      ? { ...resume.resolvedLaunch, model: params.model ?? resume.resolvedLaunch.model, thinking: params.thinking ?? resume.resolvedLaunch.thinking }
+      : resolveLaunch(host.config, profile!, params);
+    if (resolvedLaunch.model) validateModel(resolvedLaunch.model, ctx);
     const id = resume?.id ?? uniqueId(host.records);
     const cwd = resume?.cwd ?? resolve(ctx.cwd, params.cwd ?? ".");
     const artifactRoot = process.env.SUBA_ARTIFACT_ROOT?.trim()
@@ -75,13 +94,10 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
     const sessionFile = resume?.sessionFile ?? join(artifactDir, "session.jsonl");
     await mkdir(join(artifactDir, "events"), { recursive: true });
     let resultAfterEntry = 0;
-    let resolvedLaunch: ResolvedLaunch;
     if (resume) {
-      resolvedLaunch = { ...resume.resolvedLaunch, model: params.model ?? resume.resolvedLaunch.model, thinking: params.thinking ?? resume.resolvedLaunch.thinking };
       resultAfterEntry = await countSessionEntries(sessionFile);
       await rm(join(artifactDir, "process-exit"), { force: true });
     } else {
-      resolvedLaunch = resolveLaunch(host.config, profile!, params);
       const parentSession = ctx.sessionManager.getSessionFile();
       const entries = params.context === "fork" ? forkEntries(ctx.sessionManager.getBranch() as unknown as never[]) : [];
       await seedSession(sessionFile, cwd, parentSession, entries);
@@ -122,7 +138,8 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
 
   pi.registerTool({
     name: "subagent", label: "Subagent", description: "Launch an interactive Pi subagent in tmux and return immediately. Results and help requests arrive automatically. Do not poll.",
-    parameters: Type.Object({ name: Type.String(), task: Type.String(), profile: Type.Optional(Type.String()), context: Type.Optional(StringEnum(["fresh", "fork"] as const)), model: Type.Optional(Type.String()), thinking: Type.Optional(ThinkingSchema), cwd: Type.Optional(Type.String()), placement: Type.Optional(PlacementSchema), autoComplete: Type.Optional(Type.Boolean()) }),
+    promptSnippet: "Launch an asynchronous interactive Pi subagent in tmux",
+    parameters: Type.Object({ name: Type.String(), task: Type.String(), profile: Type.Optional(Type.String()), context: Type.Optional(StringEnum(["fresh", "fork"] as const)), model: Type.Optional(ModelSchema), thinking: Type.Optional(ThinkingSchema), cwd: Type.Optional(Type.String()), placement: Type.Optional(PlacementSchema), autoComplete: Type.Optional(Type.Boolean()) }),
     async execute(_id, params, _signal, _update, ctx) { const record = await start(params, ctx); return { content: [{ type: "text", text: `Launched ${record.name} as ${record.id}. Results arrive automatically; do not poll.` }], details: { id: record.id, sessionFile: record.sessionFile, tmuxTarget: record.paneId, profile: record.profile, status: record.state } }; },
   });
   pi.registerTool({
@@ -131,7 +148,7 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
   });
   pi.registerTool({
     name: "subagent_resume", label: "Resume Subagent", description: "Resume a completed or exited subagent thread in a new tmux target.",
-    parameters: Type.Object({ id: Type.String(), task: Type.String(), placement: Type.Optional(PlacementSchema), model: Type.Optional(Type.String()), thinking: Type.Optional(ThinkingSchema) }),
+    parameters: Type.Object({ id: Type.String(), task: Type.String(), placement: Type.Optional(PlacementSchema), model: Type.Optional(ModelSchema), thinking: Type.Optional(ThinkingSchema) }),
     async execute(_call, params, _signal, _update, ctx) { const previous = host.records.get(params.id); if (!previous) throw new Error(`Unknown subagent: ${params.id}`); if (isLive(previous)) throw new Error(`Subagent ${params.id} is already live`); const record = await start({ ...params, name: previous.name }, ctx, previous); return { content: [{ type: "text", text: `Resumed ${record.name} (${record.id}) in ${record.paneId}.` }], details: { id: record.id, sessionFile: record.sessionFile, tmuxTarget: record.paneId, status: record.state } }; },
   });
   pi.registerTool({

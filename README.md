@@ -17,14 +17,17 @@ Run the parent Pi session inside tmux. The package registers these parent tools:
 - `subagent_resume`
 - `subagents_list`
 
-Global configuration lives at `~/.pi/suba.json`. Profiles live at
-`~/.pi/suba/profiles/*.md`.
+Subagent resources live together under `~/.pi/suba/`:
+
+- `config.json` contains machine-readable settings.
+- `instructions.md` contains parent-agent instructions.
+- `profiles/*.md` contains child profiles.
 
 ```json
 {
   "defaultProfile": "default",
-  "model": "anthropic/claude-sonnet-4-6",
-  "thinking": "minimal",
+  "model": "openai-codex/gpt-5.6-sol",
+  "thinking": "medium",
   "placement": { "type": "split" },
   "autoComplete": true,
   "childExtensions": [
@@ -56,6 +59,20 @@ Investigate the delegated task without modifying files.
 
 Supported tool policies are `default` (`read,bash,edit,write`) and `read-only`
 (`read,bash`). Child control tools are included automatically.
+
+`instructions.md` is appended to the parent system prompt. It supports ordinary
+Markdown for model-selection policy and other delegation guidance. Explicit
+model selections must use a fully qualified `provider/model` identifier and must
+be in the current model scope. Omitting `model` and `thinking` uses the
+configured defaults above.
+
+```markdown
+# Subagent model selection
+
+Use `openai-codex/gpt-5.6-luna` with low thinking for quick, narrow work.
+Use `openai-codex/gpt-5.6-sol` with medium thinking for routine work.
+Use `openai-codex/gpt-5.6-sol` with xhigh thinking for complex work.
+```
 
 `childExtensions` lists Pi packages or extension files loaded explicitly in every
 child while automatic extension discovery remains disabled. Relative local paths
