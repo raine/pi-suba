@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import type { SubaConfig } from "../shared/config.ts";
+import { resolveChildExtensionSource, type SubaConfig } from "../shared/config.ts";
 import type { Profile } from "../shared/profiles.ts";
 import { TOOL_POLICIES } from "../shared/profiles.ts";
 import { THINKING_LEVELS, type Placement, type ThinkingLevel } from "../shared/protocol.ts";
@@ -94,7 +94,8 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
     await writeFile(promptFile, `${profileBody}\n`, { encoding: "utf8", mode: 0o600 });
     await writeFile(controlFile, `${CONTROL_PROMPT}\n`, { encoding: "utf8", mode: 0o600 });
     const childExtension = fileURLToPath(new URL("../child/index.ts", import.meta.url));
-    const args = ["--no-extensions", "-e", childExtension, "--tools", [...TOOL_POLICIES[resolvedLaunch.tools], "subagent_done", "caller_ping"].join(","), "--session", sessionFile, "--name", `suba: ${params.name}`];
+    const configuredExtensions = host.config.childExtensions.flatMap((source) => ["-e", resolveChildExtensionSource(source)]);
+    const args = ["--no-extensions", ...configuredExtensions, "-e", childExtension, "--tools", [...TOOL_POLICIES[resolvedLaunch.tools], "subagent_done", "caller_ping"].join(","), "--session", sessionFile, "--name", `suba: ${params.name}`];
     if (!resolvedLaunch.loadContext) args.push("--no-context-files");
     if (!resolvedLaunch.loadSkills) args.push("--no-skills");
     if (resolvedLaunch.model) args.push("--model", resolvedLaunch.model);

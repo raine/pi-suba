@@ -27,6 +27,10 @@ Global configuration lives at `~/.pi/suba.json`. Profiles live at
   "thinking": "minimal",
   "placement": { "type": "split" },
   "autoComplete": true,
+  "childExtensions": [
+    "../../code/pi-cc-tools-local",
+    "../../code/pi-extensions/packages/pi-codex-compaction"
+  ],
   "activity": { "pollMs": 500, "staleAfterMs": 15000, "maxRows": 8 },
   "sharedWindowName": "suba"
 }
@@ -52,6 +56,12 @@ Investigate the delegated task without modifying files.
 
 Supported tool policies are `default` (`read,bash,edit,write`) and `read-only`
 (`read,bash`). Child control tools are included automatically.
+
+`childExtensions` lists Pi packages or extension files loaded explicitly in every
+child while automatic extension discovery remains disabled. Relative local paths
+use `~/.pi/agent` as their base, matching relative package sources in
+`~/.pi/agent/settings.json`. Absolute paths, `~/` paths, and package sources such
+as `npm:package-name` are also accepted.
 
 ## Development
 

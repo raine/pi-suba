@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { THINKING_LEVELS, type Placement, type ThinkingLevel } from "./protocol.ts";
 
 export interface SubaConfig {
@@ -9,6 +9,7 @@ export interface SubaConfig {
   thinking?: ThinkingLevel;
   placement: Placement;
   autoComplete: boolean;
+  childExtensions: string[];
   activity: { pollMs: number; staleAfterMs: number; maxRows: number };
   sharedWindowName: string;
 }
@@ -17,11 +18,12 @@ export const DEFAULT_CONFIG: SubaConfig = {
   defaultProfile: "default",
   placement: { type: "split" },
   autoComplete: true,
+  childExtensions: [],
   activity: { pollMs: 500, staleAfterMs: 15_000, maxRows: 8 },
   sharedWindowName: "suba",
 };
 
-const ROOT_KEYS = new Set(["defaultProfile", "model", "thinking", "placement", "autoComplete", "activity", "sharedWindowName"]);
+const ROOT_KEYS = new Set(["defaultProfile", "model", "thinking", "placement", "autoComplete", "childExtensions", "activity", "sharedWindowName"]);
 
 function object(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object`);
@@ -51,6 +53,21 @@ export function parsePlacement(value: unknown, label = "placement"): Placement {
   return windowName ? { type: input.type, windowName } as Placement : { type: input.type } as Placement;
 }
 
+function stringArray(value: unknown, label: string): string[] {
+  if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+  const result = value.map((item, index) => string(item, `${label}[${index}]`).trim());
+  if (new Set(result).size !== result.length) throw new Error(`${label} must not contain duplicates`);
+  return result;
+}
+
+export function resolveChildExtensionSource(source: string, agentDir = join(homedir(), ".pi", "agent")): string {
+  if (source === "~") return homedir();
+  if (source.startsWith("~/")) return resolve(homedir(), source.slice(2));
+  if (isAbsolute(source)) return source;
+  if (source.startsWith(".")) return resolve(agentDir, source);
+  return source;
+}
+
 export function parseConfig(value: unknown): SubaConfig {
   const input = object(value, "configuration");
   for (const key of Object.keys(input)) if (!ROOT_KEYS.has(key)) throw new Error(`configuration has unsupported key: ${key}`);
@@ -64,6 +81,7 @@ export function parseConfig(value: unknown): SubaConfig {
     thinking,
     placement: input.placement === undefined ? DEFAULT_CONFIG.placement : parsePlacement(input.placement),
     autoComplete: input.autoComplete === undefined ? DEFAULT_CONFIG.autoComplete : boolean(input.autoComplete, "autoComplete"),
+    childExtensions: input.childExtensions === undefined ? [...DEFAULT_CONFIG.childExtensions] : stringArray(input.childExtensions, "childExtensions"),
     activity: {
       pollMs: activityInput.pollMs === undefined ? DEFAULT_CONFIG.activity.pollMs : integer(activityInput.pollMs, "activity.pollMs", 100, 60_000),
       staleAfterMs: activityInput.staleAfterMs === undefined ? DEFAULT_CONFIG.activity.staleAfterMs : integer(activityInput.staleAfterMs, "activity.staleAfterMs", 500, 3_600_000),
