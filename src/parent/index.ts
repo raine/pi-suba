@@ -94,7 +94,7 @@ export default async function (pi: ExtensionAPI) {
   }
   const watcher = new ChildWatcher(config.activity.pollMs, callbacks)
   registerTools(pi, host)
-  registerCommands(pi)
+  registerCommands(pi, () => host.profiles.values())
   pi.registerMessageRenderer("suba-result", (message, options, theme) => {
     const details = (message.details ?? {}) as SubagentMessageDetails
     const content =

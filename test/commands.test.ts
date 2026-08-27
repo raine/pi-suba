@@ -17,22 +17,31 @@ function context(options: { idle: boolean; editor?: string; hasUI?: boolean }): 
   return { ctx, editor, notify }
 }
 
+const profiles = [
+  { name: "default" },
+  { name: "reviewer", description: "Review code without editing" },
+]
+
 describe("suba command", () => {
   it("builds parent delegation guidance", () => {
-    const prompt = subaDelegationPrompt(" Inspect tmux ")
-    expect(prompt).toContain("using the suba tool")
-    expect(prompt).toContain("number of subagents based on the independent workstreams")
+    const prompt = subaDelegationPrompt(" Inspect tmux ", profiles)
+    expect(prompt).toContain("Use subagents to accomplish the overall objective")
+    expect(prompt).toContain("assign each subagent a focused task")
     expect(prompt).toContain("multiple subagents in parallel")
     expect(prompt).toContain("fresh context for self-contained or independently scoped tasks")
     expect(prompt).toContain("configured subagent guidance")
+    expect(prompt).toContain(
+      "available subagent profiles:\n  default\n  reviewer: Review code without editing",
+    )
     expect(prompt).not.toContain("to one subagent")
-    expect(prompt).toContain("\n\nInspect tmux")
+    expect(prompt).toContain("objective is for the parent agent to coordinate")
+    expect(prompt).toContain("\n<objective>\nInspect tmux\n</objective>")
   })
 
   it("sends an immediate delegation request while idle", async () => {
     const sendUserMessage = vi.fn()
     const { ctx } = context({ idle: true })
-    await runSubaCommand({ sendUserMessage } as never, " Inspect tmux ", ctx)
+    await runSubaCommand({ sendUserMessage } as never, " Inspect tmux ", ctx, profiles)
     expect(sendUserMessage).toHaveBeenCalledOnce()
     expect(sendUserMessage.mock.calls[0]?.[0]).toContain("Inspect tmux")
     expect(sendUserMessage.mock.calls[0]?.[1]).toBeUndefined()
@@ -44,7 +53,7 @@ describe("suba command", () => {
       idle: false,
       editor: "Review tests",
     })
-    await runSubaCommand({ sendUserMessage } as unknown as ExtensionAPI, "", ctx)
+    await runSubaCommand({ sendUserMessage } as unknown as ExtensionAPI, "", ctx, profiles)
     expect(editor).toHaveBeenCalledWith("Subagent task", "")
     expect(sendUserMessage).toHaveBeenCalledWith(expect.stringContaining("Review tests"), {
       deliverAs: "followUp",

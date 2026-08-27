@@ -1,15 +1,34 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent"
 
-export function subaDelegationPrompt(task: string): string {
+interface DelegationProfile {
+  name: string
+  description?: string
+}
+
+function profileLines(profiles: Iterable<DelegationProfile>): string[] {
+  return [...profiles]
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map(({ name, description }) => {
+      const summary = description?.replace(/\s+/g, " ").trim()
+      return summary ? `  ${name}: ${summary}` : `  ${name}`
+    })
+}
+
+export function subaDelegationPrompt(task: string, profiles: Iterable<DelegationProfile>): string {
   return [
-    "Delegate the following task using the suba tool.",
-    "Choose the number of subagents based on the independent workstreams in the task.",
+    "Use subagents to accomplish the overall objective below.",
+    "Analyze the objective and assign each subagent a focused task based on the independent workstreams you identify.",
     "Use multiple subagents in parallel when targets or investigations can be handled independently; otherwise use one.",
     "Use fresh context for self-contained or independently scoped tasks; use fork only when a task requires the parent conversation.",
     "Choose each model and thinking level using the configured subagent guidance.",
     "Give each subagent a concise descriptive name and do not poll for results.",
+    "Choose profiles only from this list of available subagent profiles:",
+    ...profileLines(profiles),
     "",
+    "The objective is for the parent agent to coordinate. Derive focused subagent tasks from it.",
+    "<objective>",
     task.trim(),
+    "</objective>",
   ].join("\n")
 }
 
@@ -17,6 +36,7 @@ export async function runSubaCommand(
   pi: ExtensionAPI,
   args: string,
   ctx: ExtensionCommandContext,
+  profiles: Iterable<DelegationProfile>,
 ): Promise<void> {
   let task = args.trim()
   if (!task) {
@@ -28,7 +48,7 @@ export async function runSubaCommand(
   }
   if (!task) return
 
-  const prompt = subaDelegationPrompt(task)
+  const prompt = subaDelegationPrompt(task, profiles)
   if (ctx.isIdle()) {
     pi.sendUserMessage(prompt)
     return
@@ -37,9 +57,12 @@ export async function runSubaCommand(
   ctx.ui.notify("Subagent request queued", "info")
 }
 
-export function registerCommands(pi: ExtensionAPI): void {
+export function registerCommands(
+  pi: ExtensionAPI,
+  profiles: () => Iterable<DelegationProfile>,
+): void {
   pi.registerCommand("suba", {
     description: "Delegate work to one or more subagents",
-    handler: (args, ctx) => runSubaCommand(pi, args, ctx),
+    handler: (args, ctx) => runSubaCommand(pi, args, ctx, profiles()),
   })
 }
