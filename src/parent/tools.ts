@@ -31,7 +31,7 @@ const ModelSchema = Type.String({
 })
 const ContextSchema = StringEnum(["fresh", "fork"] as const, {
   description:
-    "Conversation context for the child. Prefer fresh for self-contained or independently scoped work. Use fork only when the task depends on parent conversation that cannot be included in the delegated task.",
+    "Conversation context for the child. A fresh child receives no parent conversation, so make its task self-contained or name the applicable handoff files. Use fork only when required context cannot be captured adequately in the task or handoff files.",
 })
 const shellQuote = (value: string) => `'${value.replaceAll("'", `'"'"'`)}'`
 const CONTROL_PROMPT = `You are a delegated Pi subagent. Complete the assigned task independently. Use suba_ping only when parent guidance is required. Use suba_done to finish immediately. Automatic completion ends a settled run when enabled.`
@@ -318,7 +318,10 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
     promptSnippet: "Launch an asynchronous interactive Pi subagent with suba",
     parameters: Type.Object({
       name: Type.String(),
-      task: Type.String(),
+      task: Type.String({
+        description:
+          "Focused child assignment. For fresh context, make it self-contained or name each applicable handoff file and instruct the child to read it.",
+      }),
       profile: Type.Optional(Type.String()),
       context: Type.Optional(ContextSchema),
       model: Type.Optional(ModelSchema),

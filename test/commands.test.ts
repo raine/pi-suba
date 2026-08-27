@@ -28,7 +28,15 @@ describe("suba command", () => {
     expect(prompt).toContain("Use subagents to accomplish the overall objective")
     expect(prompt).toContain("assign each subagent a focused task")
     expect(prompt).toContain("multiple subagents in parallel")
-    expect(prompt).toContain("fresh context for self-contained or independently scoped tasks")
+    expect(prompt).toContain(
+      "ensure it can understand its assignment without the parent conversation",
+    )
+    expect(prompt).toContain("materialize relevant context in one or more handoff files")
+    expect(prompt).toContain("create those files before launching dependent subagents")
+    expect(prompt).toContain("name the applicable files in each subagent's task")
+    expect(prompt).toContain(
+      "required context cannot be captured adequately in the task or handoff files",
+    )
     expect(prompt).toContain("configured subagent guidance")
     expect(prompt).toContain(
       "available subagent profiles:\n  default\n  reviewer: Review code without editing",

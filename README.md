@@ -71,9 +71,12 @@ Markdown for model-selection policy and other delegation guidance. Explicit
 model selections must use a fully qualified `provider/model` identifier and must
 be in the current model scope. Omitting `model` and `thinking` uses the
 configured defaults above. Child context is fresh when `context` is omitted.
-Use `context: "fork"` only when the delegated task depends on parent conversation
-that cannot be included in its task prompt. Fresh context keeps independently
-scoped parallel work isolated.
+A fresh child receives no parent conversation. Before launching one, ensure its
+task is self-contained. When relevant context belongs in handoff files, create
+them before launching dependent children and name the applicable files in each
+child's task. Different children can use shared or different handoffs. Use
+`context: "fork"` only when required context cannot be captured adequately in
+the task or handoff files.
 
 ```markdown
 # Subagent model selection
