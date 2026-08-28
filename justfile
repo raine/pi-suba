@@ -28,6 +28,9 @@ check-push: check-format check
 check mode="":
     node scripts/check.mjs {{mode}}
 
+release bump="patch":
+    npm-release "{{bump}}"
+
 cua-setup:
     cua-sandbox setup
 
