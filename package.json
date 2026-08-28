@@ -7,6 +7,12 @@
     "pi-package"
   ],
   "license": "MIT",
+  "author": "Raine Virta",
+  "files": [
+    "CHANGELOG.md",
+    "pi-suba.ts",
+    "src"
+  ],
   "scripts": {
     "check": "node scripts/check.mjs",
     "types": "tsgo --noEmit",

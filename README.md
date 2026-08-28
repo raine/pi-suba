@@ -7,7 +7,7 @@ arrive asynchronously in the parent session.
 ## Install
 
 ```sh
-pi install /absolute/path/to/pi-suba
+pi install npm:pi-suba
 ```
 
 Run the parent Pi session inside tmux. The package registers these parent tools:
