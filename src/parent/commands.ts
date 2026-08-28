@@ -24,7 +24,7 @@ export function subaDelegationPrompt(task: string, profiles: Iterable<Delegation
     "Use fork only when required context cannot be captured adequately in the task or handoff files.",
     "Choose each model and thinking level using the configured subagent guidance.",
     "Give each subagent a concise descriptive name.",
-    "For separate tmux windows, use placement type window without windowName so each window uses the subagent name. Use shared-window only when grouping children as panes in one window.",
+    "Use placement type window for a separate tmux window named after each subagent. Use shared-window only when grouping children as panes in one window.",
     "Do not wait for subagents during the active turn. Results and guidance requests arrive automatically and start another turn.",
     "After launching, continue useful independent work or end your turn. Never use sleep or repeated suba_list calls to wait.",
     "Choose profiles only from this list of available subagent profiles:",

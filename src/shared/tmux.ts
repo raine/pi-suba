@@ -120,7 +120,7 @@ export async function createTarget(
     })
   }
   if (placement.type === "window") {
-    const windowName = subaWindowName(placement.windowName ?? displayName)
+    const windowName = subaWindowName(displayName)
     const sessionId = await run(["display-message", "-p", "-t", parentPane, "#{session_id}"])
     const paneId = await run([
       "new-window",

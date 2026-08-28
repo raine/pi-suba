@@ -18,19 +18,22 @@ import type { ChildRecord, RegistryState, ResolvedLaunch } from "./registry.ts"
 import { isLive } from "./registry.ts"
 import { formatElapsed, shortModel } from "./widget.ts"
 
-const PlacementSchema = Type.Object(
-  {
-    type: StringEnum(["split", "window", "shared-window"] as const),
-    windowName: Type.Optional(
-      Type.String({
-        description:
-          "Tmux window label. Omit for window placement so the window uses the subagent name. Set the same label with shared-window to group children as panes.",
-      }),
-    ),
-  },
+const PlacementSchema = Type.Union(
+  [
+    Type.Object({ type: Type.Literal("split") }),
+    Type.Object({ type: Type.Literal("window") }),
+    Type.Object({
+      type: Type.Literal("shared-window"),
+      windowName: Type.Optional(
+        Type.String({
+          description: "Tmux window label used to group children as panes.",
+        }),
+      ),
+    }),
+  ],
   {
     description:
-      "Tmux placement: split uses the parent window, window creates one window per child, and shared-window groups children as panes.",
+      "Tmux placement: split uses the parent window, window creates a window named for the child, and shared-window groups children as panes.",
   },
 )
 const ThinkingSchema = StringEnum(THINKING_LEVELS, {

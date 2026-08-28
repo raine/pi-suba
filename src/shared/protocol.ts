@@ -6,7 +6,7 @@ export type ThinkingLevel = (typeof THINKING_LEVELS)[number]
 
 export type Placement =
   | { type: "split" }
-  | { type: "window"; windowName?: string }
+  | { type: "window" }
   | { type: "shared-window"; windowName?: string }
 
 export interface ChildActivity {

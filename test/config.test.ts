@@ -13,14 +13,14 @@ describe("configuration", () => {
       parseConfig({
         defaultProfile: "explore",
         thinking: "high",
-        placement: { type: "window", windowName: "agents" },
+        placement: { type: "shared-window", windowName: "agents" },
         childExtensions: ["../../code/pi-cc-tools-local"],
         activity: { pollMs: 200, staleAfterMs: 1000, maxRows: 3 },
       }),
     ).toMatchObject({
       defaultProfile: "explore",
       thinking: "high",
-      placement: { type: "window", windowName: "agents" },
+      placement: { type: "shared-window", windowName: "agents" },
       childExtensions: ["../../code/pi-cc-tools-local"],
       activity: { pollMs: 200, staleAfterMs: 1000, maxRows: 3 },
     }))
@@ -34,6 +34,11 @@ describe("configuration", () => {
     expect(() => parseConfig({ surprise: true })).toThrow("unsupported key")
     expect(() => parseConfig({ activity: { pollMs: 10 } })).toThrow("between 100")
     expect(() => parseConfig({ childExtensions: ["same", "same"] })).toThrow("duplicates")
-    expect(() => parsePlacement({ type: "split", windowName: "bad" })).toThrow("invalid for split")
+    expect(() => parsePlacement({ type: "split", windowName: "bad" })).toThrow(
+      "valid only for shared-window",
+    )
+    expect(() => parsePlacement({ type: "window", windowName: "bad" })).toThrow(
+      "valid only for shared-window",
+    )
   })
 })

@@ -62,13 +62,12 @@ export function parsePlacement(value: unknown, label = "placement"): Placement {
       throw new Error(`${label} has unsupported key: ${key}`)
   if (input.type !== "split" && input.type !== "window" && input.type !== "shared-window")
     throw new Error(`${label}.type is invalid`)
-  if (input.type === "split" && input.windowName !== undefined)
-    throw new Error(`${label}.windowName is invalid for split placement`)
+  if (input.type !== "shared-window" && input.windowName !== undefined)
+    throw new Error(`${label}.windowName is valid only for shared-window placement`)
+  if (input.type !== "shared-window") return { type: input.type }
   const windowName =
     input.windowName === undefined ? undefined : string(input.windowName, `${label}.windowName`)
-  return windowName
-    ? ({ type: input.type, windowName } as Placement)
-    : ({ type: input.type } as Placement)
+  return windowName ? { type: input.type, windowName } : { type: input.type }
 }
 
 function stringArray(value: unknown, label: string): string[] {

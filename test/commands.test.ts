@@ -38,7 +38,7 @@ describe("suba command", () => {
       "required context cannot be captured adequately in the task or handoff files",
     )
     expect(prompt).toContain("configured subagent guidance")
-    expect(prompt).toContain("placement type window without windowName")
+    expect(prompt).toContain("window named after each subagent")
     expect(prompt).toContain("Use shared-window only when grouping children")
     expect(prompt).toContain("Results and guidance requests arrive automatically")
     expect(prompt).toContain("Never use sleep or repeated suba_list calls to wait")
