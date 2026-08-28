@@ -107,3 +107,20 @@ npm run check
 
 Cua sandbox helpers provide deterministic desktop testing with fake child Pi
 processes and optional real-model smoke coverage. See `CUA_SANDBOX.md`.
+
+## Release
+
+Releases require an upstream Git branch, npm authentication, and the
+`npm-release` command from
+[`rust-release-tools`](https://github.com/raine/rust-release-tools).
+
+```sh
+just release          # patch release
+just release minor
+just release major
+just release current  # release the version already in package.json
+```
+
+The release command updates the package version and changelog, validates the
+package, creates and pushes the release commit, publishes to npm, and creates
+and pushes the version tag. npm may prompt for a two-factor authentication code.
