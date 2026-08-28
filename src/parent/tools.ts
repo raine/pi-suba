@@ -18,10 +18,21 @@ import type { ChildRecord, RegistryState, ResolvedLaunch } from "./registry.ts"
 import { isLive } from "./registry.ts"
 import { formatElapsed, shortModel } from "./widget.ts"
 
-const PlacementSchema = Type.Object({
-  type: StringEnum(["split", "window", "shared-window"] as const),
-  windowName: Type.Optional(Type.String()),
-})
+const PlacementSchema = Type.Object(
+  {
+    type: StringEnum(["split", "window", "shared-window"] as const),
+    windowName: Type.Optional(
+      Type.String({
+        description:
+          "Tmux window label. Omit for window placement so the window uses the subagent name. Set the same label with shared-window to group children as panes.",
+      }),
+    ),
+  },
+  {
+    description:
+      "Tmux placement: split uses the parent window, window creates one window per child, and shared-window groups children as panes.",
+  },
+)
 const ThinkingSchema = StringEnum(THINKING_LEVELS, {
   description:
     "Thinking level paired with an explicit model choice. Omit it to use the configured default.",
@@ -314,7 +325,7 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
     name: "suba",
     label: "Suba",
     description:
-      "Launch an interactive Pi subagent in tmux and return immediately. Results and help requests arrive automatically. Do not poll.",
+      "Launch an interactive Pi subagent in tmux and return immediately. Results and help requests automatically start another parent turn. Never wait with sleep or repeated status checks.",
     promptSnippet: "Launch an asynchronous interactive Pi subagent with suba",
     parameters: Type.Object({
       name: Type.String(),
@@ -336,7 +347,7 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
         content: [
           {
             type: "text",
-            text: `Launched ${record.name} as ${record.id}. Results arrive automatically; do not poll.`,
+            text: `Launched ${record.name} as ${record.id}. Results arrive automatically in another turn. Do not wait with sleep or status checks.`,
           },
         ],
         details: {
@@ -490,7 +501,7 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
     name: "suba_list",
     label: "Suba List",
     description:
-      "List subagent registry and live activity. Use only when status details are needed, not to poll for results.",
+      "List subagent registry and live activity once when status details are needed. Never call repeatedly or combine with sleep to wait for results.",
     parameters: Type.Object({
       status: Type.Optional(StringEnum(["running", "completed", "all"] as const)),
     }),
