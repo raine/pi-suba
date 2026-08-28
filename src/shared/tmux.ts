@@ -93,26 +93,25 @@ export async function createTarget(
         "-t",
         windowId,
         "-F",
-        "#{pane_id}\t#{pane_width}\t#{pane_height}\t#{@suba-parent-pane}",
+        "#{pane_id}\t#{pane_top}\t#{@suba-parent-pane}",
       ])
-      const eligible = panes.split("\n").flatMap((line) => {
-        const [paneId, width, height, owner] = line.split("\t")
-        if (!paneId || (paneId !== parentPane && owner !== parentPane)) return []
-        return [{ paneId, width: Number(width), height: Number(height) }]
+      const children = panes.split("\n").flatMap((line) => {
+        const [paneId, top, owner] = line.split("\t")
+        return paneId && owner === parentPane ? [{ paneId, top: Number(top) }] : []
       })
-      const target = eligible.reduce((largest, pane) =>
-        pane.width * pane.height > largest.width * largest.height ? pane : largest,
+      const bottom = children.reduce<{ paneId: string; top: number } | undefined>(
+        (candidate, pane) => (!candidate || pane.top > candidate.top ? pane : candidate),
+        undefined,
       )
-      const orientation = target.width >= target.height * 2 ? "-h" : "-v"
       const paneId = await run([
         "split-window",
-        orientation,
+        bottom ? "-v" : "-h",
         "-d",
         "-P",
         "-F",
         "#{pane_id}",
         "-t",
-        target.paneId,
+        bottom?.paneId ?? parentPane,
         command,
       ])
       await run(["set-option", "-p", "-t", paneId, "@suba-parent-pane", parentPane])

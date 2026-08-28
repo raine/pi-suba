@@ -87,7 +87,7 @@ describe.skipIf(!process.env.PATH)("tmux integration", () => {
       "suba-watcher-research",
     )
   })
-  it("balances concurrent splits across managed panes", async () => {
+  it("stacks concurrent splits in a right-hand column", async () => {
     if (!parentPane) return
     const root = await run([
       "new-window",
@@ -96,7 +96,7 @@ describe.skipIf(!process.env.PATH)("tmux integration", () => {
       "-F",
       "#{pane_id}",
       "-n",
-      "balanced",
+      "stacked",
       "-t",
       "test:",
       "sleep 60",
@@ -120,12 +120,29 @@ describe.skipIf(!process.env.PATH)("tmux integration", () => {
       createTarget({ type: "split" }, root, "sleep 60", "two", "suba", run),
       createTarget({ type: "split" }, root, "sleep 60", "three", "suba", run),
     ])
-    const widths = await Promise.all(
-      [root, ...children.map((child) => child.paneId)].map(async (pane) =>
-        Number(await run(["display-message", "-p", "-t", pane, "#{pane_width}"])),
-      ),
+    const geometry = await Promise.all(
+      [root, ...children.map((child) => child.paneId)].map(async (pane) => {
+        const [left, top, width] = (
+          await run([
+            "display-message",
+            "-p",
+            "-t",
+            pane,
+            "#{pane_left}\t#{pane_top}\t#{pane_width}",
+          ])
+        )
+          .split("\t")
+          .map(Number)
+        return { left, top, width }
+      }),
     )
-    expect(Math.max(...widths) - Math.min(...widths)).toBeLessThanOrEqual(1)
+    const [parent, ...childPanes] = geometry
+    expect(childPanes.every((pane) => pane.left > parent.left)).toBe(true)
+    expect(new Set(childPanes.map((pane) => pane.left)).size).toBe(1)
+    expect(new Set(childPanes.map((pane) => pane.width)).size).toBe(1)
+    expect(
+      childPanes.every((pane, index) => index === 0 || pane.top > childPanes[index - 1]!.top),
+    ).toBe(true)
     expect(await run(["display-message", "-p", "-t", unrelated, "#{pane_width}"])).toBe(
       unrelatedWidth,
     )
