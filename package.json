@@ -8,6 +8,12 @@
   ],
   "license": "MIT",
   "author": "Raine Virta",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raine/pi-suba.git"
+  },
+  "homepage": "https://github.com/raine/pi-suba#readme",
+  "bugs": "https://github.com/raine/pi-suba/issues",
   "files": [
     "CHANGELOG.md",
     "pi-suba.ts",
