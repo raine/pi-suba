@@ -122,24 +122,28 @@ describe.skipIf(!process.env.PATH)("tmux integration", () => {
     ])
     const geometry = await Promise.all(
       [root, ...children.map((child) => child.paneId)].map(async (pane) => {
-        const [left, top, width] = (
+        const [left, top, width, height] = (
           await run([
             "display-message",
             "-p",
             "-t",
             pane,
-            "#{pane_left}\t#{pane_top}\t#{pane_width}",
+            "#{pane_left}\t#{pane_top}\t#{pane_width}\t#{pane_height}",
           ])
         )
           .split("\t")
           .map(Number)
-        return { left, top, width }
+        return { left, top, width, height }
       }),
     )
     const [parent, ...childPanes] = geometry
     expect(childPanes.every((pane) => pane.left > parent.left)).toBe(true)
     expect(new Set(childPanes.map((pane) => pane.left)).size).toBe(1)
     expect(new Set(childPanes.map((pane) => pane.width)).size).toBe(1)
+    expect(
+      Math.max(...childPanes.map((pane) => pane.height)) -
+        Math.min(...childPanes.map((pane) => pane.height)),
+    ).toBeLessThanOrEqual(1)
     expect(
       childPanes.every((pane, index) => index === 0 || pane.top > childPanes[index - 1]!.top),
     ).toBe(true)

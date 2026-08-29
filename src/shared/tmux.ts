@@ -77,6 +77,36 @@ async function findWindow(
   return undefined
 }
 
+async function equalizeSplitHeights(
+  windowId: string,
+  parentPane: string,
+  run: TmuxExec,
+): Promise<void> {
+  const panes = await run([
+    "list-panes",
+    "-t",
+    windowId,
+    "-F",
+    "#{pane_id}\t#{pane_top}\t#{pane_height}\t#{@suba-parent-pane}",
+  ])
+  const children = panes
+    .split("\n")
+    .flatMap((line) => {
+      const [paneId, top, height, owner] = line.split("\t")
+      return paneId && owner === parentPane
+        ? [{ paneId, top: Number(top), height: Number(height) }]
+        : []
+    })
+    .sort((left, right) => left.top - right.top)
+  if (children.length < 2) return
+
+  const height = Math.floor(
+    children.reduce((total, child) => total + child.height, 0) / children.length,
+  )
+  for (const child of children.slice(0, -1))
+    await run(["resize-pane", "-t", child.paneId, "-y", String(height)])
+}
+
 export async function createTarget(
   placement: Placement,
   parentPane: string,
@@ -115,6 +145,7 @@ export async function createTarget(
         command,
       ])
       await run(["set-option", "-p", "-t", paneId, "@suba-parent-pane", parentPane])
+      await equalizeSplitHeights(windowId, parentPane, run)
       return { paneId, placement }
     })
   }
