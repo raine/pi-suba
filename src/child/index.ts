@@ -33,10 +33,15 @@ export default function (pi: ExtensionAPI) {
   const finish = async (ctx: ExtensionContext, explicit = false): Promise<boolean> => {
     if (lifecycle !== "running") return false
     lifecycle = "completing"
-    const error = explicit ? undefined : latestAssistantError(ctx)
-    if (error) await events.failed(error)
-    else await events.completed()
-    await activity.done()
+    try {
+      const error = explicit ? undefined : latestAssistantError(ctx)
+      if (error) await events.failed(error)
+      else await events.completed()
+    } catch (error) {
+      lifecycle = "running"
+      throw error
+    }
+    await activity.done().catch(() => undefined)
     lifecycle = "terminated"
     ctx.shutdown()
     return true
@@ -49,7 +54,8 @@ export default function (pi: ExtensionAPI) {
       "Finish this delegated task immediately. The latest assistant text becomes the parent result.",
     parameters: Type.Object({}),
     async execute(_id, _params, _signal, _update, ctx) {
-      await finish(ctx, true)
+      if (!(await finish(ctx, true)))
+        throw new Error(`suba_done is unavailable while lifecycle is ${lifecycle}`)
       return {
         content: [{ type: "text", text: "Subagent completion recorded. Shutting down." }],
         details: {},
