@@ -1,6 +1,6 @@
 {
   "name": "pi-suba",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Interactive tmux subagents for Pi",
   "type": "module",
   "keywords": [
