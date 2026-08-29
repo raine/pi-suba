@@ -151,7 +151,7 @@ describe.skipIf(!process.env.PATH)("tmux integration", () => {
       unrelatedWidth,
     )
   })
-  it("creates and tiles a shared window", async () => {
+  it("stacks panes in a shared window", async () => {
     if (!parentPane) return
     const [first, second] = await Promise.all([
       createTarget(
@@ -176,5 +176,87 @@ describe.skipIf(!process.env.PATH)("tmux integration", () => {
     expect(await run(["display-message", "-p", "-t", first.paneId, "#{window_name}"])).toBe(
       "suba-agents",
     )
+    const widths = await Promise.all(
+      [first.paneId, second.paneId].map((pane) =>
+        run(["display-message", "-p", "-t", pane, "#{pane_width}"]),
+      ),
+    )
+    expect(new Set(widths).size).toBe(1)
+  })
+  it("keeps a workmux sidebar beside shared-window panes", async () => {
+    if (!parentPane) return
+    const first = await createTarget(
+      { type: "shared-window", windowName: "sidebar-agents" },
+      parentPane,
+      "sleep 60",
+      "one",
+      "suba",
+      run,
+    )
+    const sidebar = await run([
+      "split-window",
+      "-hbf",
+      "-l",
+      "20",
+      "-d",
+      "-P",
+      "-F",
+      "#{pane_id}",
+      "-t",
+      first.paneId,
+      "sleep 60",
+    ])
+    await run(["set-option", "-p", "-t", sidebar, "@workmux_role", "sidebar"])
+    const second = await createTarget(
+      { type: "shared-window", windowName: "sidebar-agents" },
+      parentPane,
+      "sleep 60",
+      "two",
+      "suba",
+      run,
+    )
+    const third = await createTarget(
+      { type: "shared-window", windowName: "sidebar-agents" },
+      parentPane,
+      "sleep 60",
+      "three",
+      "suba",
+      run,
+    )
+    const fourth = await createTarget(
+      { type: "shared-window", windowName: "sidebar-agents" },
+      parentPane,
+      "sleep 60",
+      "four",
+      "suba",
+      run,
+    )
+    const geometry = await Promise.all(
+      [sidebar, first.paneId, second.paneId, third.paneId, fourth.paneId].map(async (pane) => {
+        const [left, top, width, height] = (
+          await run([
+            "display-message",
+            "-p",
+            "-t",
+            pane,
+            "#{pane_left}\t#{pane_top}\t#{pane_width}\t#{pane_height}",
+          ])
+        )
+          .split("\t")
+          .map(Number)
+        return { left, top, width, height }
+      }),
+    )
+    const [sidebarPane, ...agents] = geometry
+    expect(sidebarPane.top).toBe(0)
+    expect(sidebarPane.height).toBe(60)
+    expect(agents.every((pane) => pane.left > sidebarPane.left)).toBe(true)
+    expect(new Set(agents.map((pane) => pane.left)).size).toBe(2)
+    expect(new Set(agents.map((pane) => pane.top)).size).toBe(2)
+    expect(new Set(agents.map((pane) => pane.width)).size).toBe(1)
+    expect(
+      Math.max(...agents.map((pane) => pane.height)) -
+        Math.min(...agents.map((pane) => pane.height)),
+    ).toBeLessThanOrEqual(1)
   })
 })

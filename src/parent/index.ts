@@ -2,7 +2,7 @@ import { keyHint, type ExtensionAPI, type ExtensionContext } from "@earendil-wor
 import { loadConfig, type SubaConfig } from "../shared/config.ts"
 import { loadInstructions } from "../shared/instructions.ts"
 import { loadProfiles, type Profile } from "../shared/profiles.ts"
-import { tmuxExec } from "../shared/tmux.ts"
+import { applySharedWindowGrid } from "../shared/tmux.ts"
 import { registerCommands } from "./commands.ts"
 import { registerTools, type ManagerHost } from "./tools.ts"
 import { isLive, restoreRegistry, type ChildRecord } from "./registry.ts"
@@ -53,7 +53,7 @@ export default async function (pi: ExtensionAPI) {
       pi.appendEntry("suba-child", record)
       refreshWidget()
       if (!isLive(record) && record.windowId && record.placement.type === "shared-window")
-        void tmuxExec(["select-layout", "-t", record.windowId, "tiled"]).catch(() => undefined)
+        void applySharedWindowGrid(record.windowId).catch(() => undefined)
       if (notify)
         pi.sendMessage(
           {

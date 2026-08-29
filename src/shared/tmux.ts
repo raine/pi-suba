@@ -77,6 +77,83 @@ async function findWindow(
   return undefined
 }
 
+interface PaneGeometry {
+  paneId: string
+  left: number
+  top: number
+  width: number
+  height: number
+  role: string
+}
+
+interface LayoutRect {
+  width: number
+  height: number
+  left: number
+  top: number
+}
+
+interface LayoutNode {
+  rect: LayoutRect
+  paneId?: number
+  split?: "horizontal" | "vertical"
+  children?: LayoutNode[]
+}
+
+function distribute(total: number, count: number): number[] {
+  const available = total - Math.max(0, count - 1)
+  const size = Math.floor(available / count)
+  return Array.from({ length: count }, (_, index) =>
+    index === count - 1 ? available - size * (count - 1) : size,
+  )
+}
+
+function gridLayout(panes: PaneGeometry[], rect: LayoutRect): LayoutNode {
+  const rowCount = Math.ceil(Math.sqrt(panes.length))
+  const columnCount = Math.ceil(panes.length / rowCount)
+  const rowHeights = distribute(rect.height, rowCount)
+  const rows: LayoutNode[] = []
+  let paneIndex = 0
+  let top = rect.top
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+    const count = Math.min(columnCount, panes.length - paneIndex)
+    const widths = distribute(rect.width, count)
+    const children: LayoutNode[] = []
+    let left = rect.left
+    for (const width of widths) {
+      const pane = panes[paneIndex++]!
+      children.push({
+        rect: { width, height: rowHeights[rowIndex]!, left, top },
+        paneId: Number(pane.paneId.slice(1)),
+      })
+      left += width + 1
+    }
+    const rowRect = { width: rect.width, height: rowHeights[rowIndex]!, left: rect.left, top }
+    rows.push(
+      children.length === 1 ? children[0]! : { rect: rowRect, split: "horizontal", children },
+    )
+    top += rowHeights[rowIndex]! + 1
+  }
+  return rows.length === 1 ? rows[0]! : { rect, split: "vertical", children: rows }
+}
+
+function serializeLayoutNode(node: LayoutNode): string {
+  const { width, height, left, top } = node.rect
+  const prefix = `${width}x${height},${left},${top}`
+  if (node.paneId !== undefined) return `${prefix},${node.paneId}`
+  const brackets = node.split === "horizontal" ? ["{", "}"] : ["[", "]"]
+  return `${prefix}${brackets[0]}${node.children!.map(serializeLayoutNode).join(",")}${brackets[1]}`
+}
+
+function layoutChecksum(layout: string): string {
+  let checksum = 0
+  for (const byte of Buffer.from(layout)) {
+    checksum = ((checksum >> 1) | ((checksum & 1) << 15)) + byte
+    checksum &= 0xffff
+  }
+  return checksum.toString(16).padStart(4, "0")
+}
+
 async function equalizeSplitHeights(
   windowId: string,
   parentPane: string,
@@ -99,12 +176,87 @@ async function equalizeSplitHeights(
     })
     .sort((left, right) => left.top - right.top)
   if (children.length < 2) return
-
   const height = Math.floor(
     children.reduce((total, child) => total + child.height, 0) / children.length,
   )
   for (const child of children.slice(0, -1))
     await run(["resize-pane", "-t", child.paneId, "-y", String(height)])
+}
+
+async function sharedWindowPanes(windowId: string, run: TmuxExec): Promise<PaneGeometry[]> {
+  const panes = await run([
+    "list-panes",
+    "-t",
+    windowId,
+    "-F",
+    "#{pane_id}\t#{pane_left}\t#{pane_top}\t#{pane_width}\t#{pane_height}\t#{@workmux_role}",
+  ])
+  return panes.split("\n").flatMap((line) => {
+    const [paneId, left, top, width, height, role = ""] = line.split("\t")
+    return paneId
+      ? [
+          {
+            paneId,
+            left: Number(left),
+            top: Number(top),
+            width: Number(width),
+            height: Number(height),
+            role,
+          },
+        ]
+      : []
+  })
+}
+
+export async function applySharedWindowGrid(windowId: string, run = tmuxExec): Promise<void> {
+  const panes = await sharedWindowPanes(windowId, run)
+  const agents = panes.filter((pane) => pane.role !== "sidebar")
+  if (!agents.length) return
+  const [windowWidth, windowHeight] = (
+    await run(["display-message", "-p", "-t", windowId, "#{window_width}\t#{window_height}"])
+  )
+    .split("\t")
+    .map(Number)
+  const sidebar = panes.find((pane) => pane.role === "sidebar")
+  let contentRect = { width: windowWidth!, height: windowHeight!, left: 0, top: 0 }
+  let root: LayoutNode
+  if (sidebar && sidebar.left === 0 && sidebar.width < windowWidth!) {
+    const sidebarRect = { width: sidebar.width, height: windowHeight!, left: 0, top: 0 }
+    contentRect = {
+      width: windowWidth! - sidebar.width - 1,
+      height: windowHeight!,
+      left: sidebar.width + 1,
+      top: 0,
+    }
+    root = {
+      rect: { width: windowWidth!, height: windowHeight!, left: 0, top: 0 },
+      split: "horizontal",
+      children: [
+        { rect: sidebarRect, paneId: Number(sidebar.paneId.slice(1)) },
+        gridLayout(agents, contentRect),
+      ],
+    }
+  } else if (sidebar && sidebar.top === 0 && sidebar.height < windowHeight!) {
+    const sidebarRect = { width: windowWidth!, height: sidebar.height, left: 0, top: 0 }
+    contentRect = {
+      width: windowWidth!,
+      height: windowHeight! - sidebar.height - 1,
+      left: 0,
+      top: sidebar.height + 1,
+    }
+    root = {
+      rect: { width: windowWidth!, height: windowHeight!, left: 0, top: 0 },
+      split: "vertical",
+      children: [
+        { rect: sidebarRect, paneId: Number(sidebar.paneId.slice(1)) },
+        gridLayout(agents, contentRect),
+      ],
+    }
+  } else {
+    root = gridLayout(agents, contentRect)
+  }
+  const body = serializeLayoutNode(root)
+  await run(["select-layout", "-t", windowId, `${layoutChecksum(body)},${body}`])
 }
 
 export async function createTarget(
@@ -188,8 +340,20 @@ export async function createTarget(
       await pinWindowName(paneId, windowName, run)
       windowId = await run(["display-message", "-p", "-t", paneId, "#{window_id}"])
     } else {
-      paneId = await run(["split-window", "-d", "-P", "-F", "#{pane_id}", "-t", windowId, command])
-      await run(["select-layout", "-t", windowId, "tiled"])
+      const panes = await sharedWindowPanes(windowId, run)
+      const targetPane = panes.find((pane) => pane.role !== "sidebar")?.paneId
+      paneId = await run([
+        "split-window",
+        "-v",
+        "-d",
+        "-P",
+        "-F",
+        "#{pane_id}",
+        "-t",
+        targetPane ?? windowId,
+        command,
+      ])
+      await applySharedWindowGrid(windowId, run)
     }
     return { paneId, placement, windowId }
   })
