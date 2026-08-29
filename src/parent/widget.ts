@@ -24,7 +24,6 @@ export interface WidgetItem {
   name: string
   state: "running" | "waiting"
   activity: string
-  stale: boolean
   model: string
   thinking: string
   elapsed: string
@@ -49,7 +48,6 @@ function activityLabel(record: ChildRecord): string {
 export function projectWidget(
   records: ChildRecord[],
   now: number,
-  staleAfterMs: number,
   maxRows: number,
 ): WidgetProjection {
   const active = records.filter((record) =>
@@ -61,7 +59,6 @@ export function projectWidget(
       name: record.name,
       state: record.state === "awaiting-parent" ? "waiting" : "running",
       activity: activityLabel(record),
-      stale: !!record.activity && now - record.activity.updatedAt > staleAfterMs,
       model: shortModel(record.activity?.model ?? record.resolvedLaunch.model),
       thinking: record.activity?.thinking ?? record.resolvedLaunch.thinking ?? "default",
       elapsed: formatElapsed(now - record.startedAt),
@@ -74,20 +71,14 @@ export function projectWidget(
   }
 }
 
-export function projectWidgetRows(
-  records: ChildRecord[],
-  now: number,
-  staleAfterMs: number,
-  maxRows: number,
-): string[] {
-  const projection = projectWidget(records, now, staleAfterMs, maxRows)
+export function projectWidgetRows(records: ChildRecord[], now: number, maxRows: number): string[] {
+  const projection = projectWidget(records, now, maxRows)
   if (!projection.activeCount) return []
   const rows = [`Subagents · ${projection.activeCount} active`]
   for (const item of projection.items) {
-    const glyph = item.state === "waiting" ? "?" : item.stale ? "!" : "●"
-    const stale = item.stale ? " stale" : ""
+    const glyph = item.state === "waiting" ? "?" : "●"
     rows.push(
-      `${glyph} ${item.name} · ${item.activity}${stale} · ${item.model} · ${item.thinking} · ${item.elapsed}`,
+      `${glyph} ${item.name} · ${item.activity} · ${item.model} · ${item.thinking} · ${item.elapsed}`,
     )
   }
   if (projection.overflow) rows.push(`+${projection.overflow} more`)
@@ -137,14 +128,9 @@ export class ActivityWidget implements Component {
     const innerWidth = Math.max(0, width - 2)
     for (const item of projection.items) {
       const glyph =
-        item.state === "waiting"
-          ? this.theme.fg("warning", "?")
-          : item.stale
-            ? this.theme.fg("warning", "!")
-            : this.theme.fg("accent", "●")
-      const activityTone = item.state === "waiting" || item.stale ? "warning" : "dim"
-      const stale = item.stale ? " · stale" : ""
-      const left = ` ${glyph} ${this.theme.bold(item.name)} ${this.theme.fg(activityTone, `· ${item.activity}${stale}`)}`
+        item.state === "waiting" ? this.theme.fg("warning", "?") : this.theme.fg("accent", "●")
+      const activityTone = item.state === "waiting" ? "warning" : "dim"
+      const left = ` ${glyph} ${this.theme.bold(item.name)} ${this.theme.fg(activityTone, `· ${item.activity}`)}`
       const detailParts =
         innerWidth >= 52 ? [item.model, item.thinking, item.elapsed] : [item.elapsed]
       const right = this.theme.fg("dim", `${detailParts.join(" · ")} `)

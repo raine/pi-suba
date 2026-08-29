@@ -15,14 +15,14 @@ describe("configuration", () => {
         thinking: "high",
         placement: { type: "shared-window", windowName: "agents" },
         childExtensions: ["../../code/pi-cc-tools-local"],
-        activity: { pollMs: 200, staleAfterMs: 1000, maxRows: 3 },
+        activity: { pollMs: 200, maxRows: 3 },
       }),
     ).toMatchObject({
       defaultProfile: "explore",
       thinking: "high",
       placement: { type: "shared-window", windowName: "agents" },
       childExtensions: ["../../code/pi-cc-tools-local"],
-      activity: { pollMs: 200, staleAfterMs: 1000, maxRows: 3 },
+      activity: { pollMs: 200, maxRows: 3 },
     }))
   it("resolves configured local sources from the Pi agent directory", () => {
     expect(

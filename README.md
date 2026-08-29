@@ -163,7 +163,6 @@ All files are optional. Configuration and profiles have built-in defaults. Witho
   "childExtensions": ["npm:some-pi-package"],
   "activity": {
     "pollMs": 500,
-    "staleAfterMs": 15000,
     "maxRows": 8
   },
   "sharedWindowName": "suba"
@@ -179,7 +178,6 @@ All files are optional. Configuration and profiles have built-in defaults. Witho
 | `autoComplete`          | `true`                | Finish a child when its agent settles       |
 | `childExtensions`       | `[]`                  | Additional extensions loaded in every child |
 | `activity.pollMs`       | `500`                 | Parent watcher interval in milliseconds     |
-| `activity.staleAfterMs` | `15000`               | Delay before activity is shown as stale     |
 | `activity.maxRows`      | `8`                   | Maximum rows in the activity widget         |
 | `sharedWindowName`      | `"suba"`              | Default shared-window name                  |
 

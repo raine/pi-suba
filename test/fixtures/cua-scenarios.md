@@ -84,11 +84,10 @@ Call suba_resume for <id> with task "[fake:complete] appended result".
 
 The resumed result must contain the appended result and exclude the first one.
 
-### Activity overflow and stale state
+### Activity overflow
 
 Launch four `[fake:stay]` children. The widget must show three rows and `+1 more`.
-Wait longer than one second without activity and verify stale markers. Resize the
-tmux window to narrow widths and verify bounded rows.
+Resize the tmux window to narrow widths and verify bounded rows.
 
 ### Parent registry restoration
 

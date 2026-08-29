@@ -109,8 +109,7 @@ The Cua run covers:
 - Registry replay after parent restart
 - Profile precedence, tool policies, context, skills, and prompt modes
 - Extension isolation and nested-subagent prevention
-- Activity model, streaming, tool, waiting, done, stale, narrow, and overflow
-  states
+- Activity model, streaming, tool, waiting, done, narrow, and overflow states
 - Malformed configuration, profiles, activity, and event artifacts
 - Real Pi companion completion, ping, continuation, model changes, and resume
 

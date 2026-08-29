@@ -58,7 +58,7 @@ describe("registry and widget", () => {
       "/home/user/.pi/suba/artifacts/session-id/child-id/session.jsonl",
     )
   })
-  it("caps rows and marks stale activity", () => {
+  it("caps activity rows", () => {
     const first = record(1)
     first.activity = {
       version: 1,
@@ -70,8 +70,8 @@ describe("registry and widget", () => {
       toolName: "bash",
     }
     const second = { ...record(1), id: "b2", name: "review" }
-    const rows = projectWidgetRows([first, second], 20_000, 1000, 1)
-    expect(rows.join("\n")).toContain("bash stale")
+    const rows = projectWidgetRows([first, second], 20_000, 1)
+    expect(rows.join("\n")).toContain("bash")
     expect(rows.at(-1)).toBe("+1 more")
   })
 
@@ -88,7 +88,7 @@ describe("registry and widget", () => {
       toolName: "read",
       activityStartedAt: 24_500,
     }
-    const projection = projectWidget([first], 25_000, 10_000, 3)
+    const projection = projectWidget([first], 25_000, 3)
     expect(projection.items[0]?.elapsed).toBe("15s")
     const theme = {
       fg: (_color: string, text: string) => text,

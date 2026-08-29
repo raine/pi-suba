@@ -19,12 +19,7 @@ export default async function (pi: ExtensionAPI) {
   let renderTimer: NodeJS.Timeout | undefined
   const refreshWidget = () => {
     if (!latestCtx?.hasUI) return
-    const projection = projectWidget(
-      [...records.values()],
-      Date.now(),
-      config.activity.staleAfterMs,
-      config.activity.maxRows,
-    )
+    const projection = projectWidget([...records.values()], Date.now(), config.activity.maxRows)
     if (!projection.activeCount) {
       latestCtx.ui.setWidget("suba-activity", undefined)
       if (renderTimer) clearInterval(renderTimer)
@@ -35,13 +30,7 @@ export default async function (pi: ExtensionAPI) {
       "suba-activity",
       (_tui, theme) =>
         new ActivityWidget(
-          () =>
-            projectWidget(
-              [...records.values()],
-              Date.now(),
-              config.activity.staleAfterMs,
-              config.activity.maxRows,
-            ),
+          () => projectWidget([...records.values()], Date.now(), config.activity.maxRows),
           theme,
         ),
       { placement: "aboveEditor" },

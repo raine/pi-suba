@@ -10,7 +10,7 @@ export interface SubaConfig {
   placement: Placement
   autoComplete: boolean
   childExtensions: string[]
-  activity: { pollMs: number; staleAfterMs: number; maxRows: number }
+  activity: { pollMs: number; maxRows: number }
   sharedWindowName: string
 }
 
@@ -19,7 +19,7 @@ export const DEFAULT_CONFIG: SubaConfig = {
   placement: { type: "split" },
   autoComplete: true,
   childExtensions: [],
-  activity: { pollMs: 500, staleAfterMs: 15_000, maxRows: 8 },
+  activity: { pollMs: 500, maxRows: 8 },
   sharedWindowName: "suba",
 }
 
@@ -95,7 +95,7 @@ export function parseConfig(value: unknown): SubaConfig {
     if (!ROOT_KEYS.has(key)) throw new Error(`configuration has unsupported key: ${key}`)
   const activityInput = input.activity === undefined ? {} : object(input.activity, "activity")
   for (const key of Object.keys(activityInput))
-    if (!["pollMs", "staleAfterMs", "maxRows"].includes(key))
+    if (!["pollMs", "maxRows"].includes(key))
       throw new Error(`activity has unsupported key: ${key}`)
   const thinking =
     input.thinking === undefined ? undefined : (string(input.thinking, "thinking") as ThinkingLevel)
@@ -123,10 +123,6 @@ export function parseConfig(value: unknown): SubaConfig {
         activityInput.pollMs === undefined
           ? DEFAULT_CONFIG.activity.pollMs
           : integer(activityInput.pollMs, "activity.pollMs", 100, 60_000),
-      staleAfterMs:
-        activityInput.staleAfterMs === undefined
-          ? DEFAULT_CONFIG.activity.staleAfterMs
-          : integer(activityInput.staleAfterMs, "activity.staleAfterMs", 500, 3_600_000),
       maxRows:
         activityInput.maxRows === undefined
           ? DEFAULT_CONFIG.activity.maxRows
