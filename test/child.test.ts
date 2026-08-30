@@ -78,4 +78,58 @@ describe("child completion", () => {
     expect(shutdowns).toBe(1)
     expect((await readEvents(artifactDir, 0)).map((event) => event.type)).toEqual(["completed"])
   })
+
+  it("waits for a continuation after an aborted provider turn", async () => {
+    const artifactDir = await mkdtemp(join(tmpdir(), "pi-suba-child-"))
+    temporaryDirectories.push(artifactDir)
+    process.env.SUBA_CHILD_ID = "compaction"
+    process.env.SUBA_ARTIFACT_DIR = artifactDir
+    process.env.SUBA_AUTO_COMPLETE = "1"
+
+    const handlers = new Map<string, Handler>()
+    const pi = {
+      registerTool() {},
+      on(name: string, handler: Handler) {
+        handlers.set(name, handler)
+      },
+    } as unknown as ExtensionAPI
+    childExtension(pi)
+
+    let branch: Array<{
+      type: string
+      message: { role: string; stopReason: string; errorMessage?: string }
+    }> = [
+      {
+        type: "message",
+        message: {
+          role: "assistant",
+          stopReason: "error",
+          errorMessage: "The operation was aborted.",
+        },
+      },
+    ]
+    let shutdowns = 0
+    const ctx = {
+      sessionManager: { getBranch: () => branch },
+      shutdown: () => {
+        shutdowns += 1
+      },
+    } as unknown as ExtensionContext
+
+    await handlers.get("agent_settled")?.({}, ctx)
+    expect(shutdowns).toBe(0)
+    expect(await readEvents(artifactDir, 0)).toEqual([])
+
+    branch = [
+      ...branch,
+      {
+        type: "message",
+        message: { role: "assistant", stopReason: "stop" },
+      },
+    ]
+    await handlers.get("agent_settled")?.({}, ctx)
+
+    expect(shutdowns).toBe(1)
+    expect((await readEvents(artifactDir, 0)).map((event) => event.type)).toEqual(["completed"])
+  })
 })

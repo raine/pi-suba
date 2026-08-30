@@ -5,6 +5,7 @@ import { ActivityRecorder } from "./activity.ts"
 import { EventWriter } from "./events.ts"
 
 type Lifecycle = "running" | "awaiting-parent" | "completing" | "terminated"
+type AssistantState = { stopReason?: string; errorMessage?: string }
 
 export default function (pi: ExtensionAPI) {
   const childId = process.env.SUBA_CHILD_ID
@@ -16,19 +17,30 @@ export default function (pi: ExtensionAPI) {
   const events = new EventWriter(childId, artifactDir)
   let lifecycle: Lifecycle = "running"
 
-  const latestAssistantError = (ctx: ExtensionContext): string | undefined => {
+  const latestAssistant = (ctx: ExtensionContext): AssistantState | undefined => {
     const branch = ctx.sessionManager.getBranch() as Array<{
       type?: string
-      message?: { role?: string; stopReason?: string; errorMessage?: string }
+      message?: AssistantState & { role?: string }
     }>
     for (let index = branch.length - 1; index >= 0; index--) {
       const message = branch[index]?.message
-      if (branch[index]?.type === "message" && message?.role === "assistant")
-        return message.stopReason === "error"
-          ? message.errorMessage || "provider request failed"
-          : undefined
+      if (branch[index]?.type === "message" && message?.role === "assistant") return message
     }
     return undefined
+  }
+  const latestAssistantError = (ctx: ExtensionContext): string | undefined => {
+    const message = latestAssistant(ctx)
+    return message?.stopReason === "error"
+      ? message.errorMessage || "provider request failed"
+      : undefined
+  }
+  const latestAssistantWasAborted = (ctx: ExtensionContext): boolean => {
+    const message = latestAssistant(ctx)
+    return (
+      message?.stopReason === "aborted" ||
+      (message?.stopReason === "error" &&
+        /\boperation was aborted\b/i.test(message.errorMessage ?? ""))
+    )
   }
   const finish = async (ctx: ExtensionContext, explicit = false): Promise<boolean> => {
     if (lifecycle !== "running") return false
@@ -107,7 +119,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("model_select", (event) => activity.selected(event.model.provider, event.model.id))
   pi.on("thinking_level_select", (event) => activity.thinking(event.level as ThinkingLevel))
   pi.on("agent_settled", async (_event, ctx) => {
-    if (automatic && lifecycle === "running") await finish(ctx)
+    if (automatic && lifecycle === "running" && !latestAssistantWasAborted(ctx)) await finish(ctx)
   })
   pi.on("session_shutdown", async () => {
     if (lifecycle !== "terminated" && lifecycle !== "awaiting-parent") await activity.done()
