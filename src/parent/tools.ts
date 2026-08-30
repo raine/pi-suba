@@ -33,7 +33,7 @@ const PlacementSchema = Type.Union(
   ],
   {
     description:
-      "Tmux placement: split uses the parent window, window creates a window named for the child, and shared-window groups children as panes.",
+      "Optional tmux placement override. Omit unless the user explicitly requests a placement. Omission uses the configured default. The built-in default is a split in the parent window. window creates a window named for the child, and shared-window groups children as panes.",
   },
 )
 const ThinkingSchema = StringEnum(THINKING_LEVELS, {
@@ -328,7 +328,7 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
     name: "suba",
     label: "Suba",
     description:
-      "Launch an interactive Pi subagent in tmux and return immediately. Results and help requests automatically start another parent turn. Never wait with sleep or repeated status checks.",
+      "Launch an interactive Pi subagent in tmux and return immediately. Omit placement unless the user explicitly requests one, so the configured default applies. Results and help requests automatically start another parent turn. Never wait with sleep or repeated status checks.",
     promptSnippet: "Launch an asynchronous interactive Pi subagent with suba",
     parameters: Type.Object({
       name: Type.String(),
@@ -448,7 +448,8 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
   pi.registerTool({
     name: "suba_resume",
     label: "Suba Resume",
-    description: "Resume a completed or exited subagent thread in a new tmux target.",
+    description:
+      "Resume a completed or exited subagent thread in a new tmux target. Omit placement unless the user explicitly requests one.",
     parameters: Type.Object({
       id: Type.String(),
       task: Type.String(),

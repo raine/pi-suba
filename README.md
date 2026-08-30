@@ -273,6 +273,8 @@ files and skills, and adds no profile prompt. Create `profiles/default.md` to cu
 
 ## Tmux placement
 
+Launches use the configured placement by default. Per-launch placement is an explicit override for user-requested layouts.
+
 | Placement       | Behavior                                                     |
 | --------------- | ------------------------------------------------------------ |
 | `split`         | Open beside the parent, then stack additional children below |
