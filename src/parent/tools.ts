@@ -59,6 +59,38 @@ export interface ManagerHost {
   watch(id: string): void
 }
 
+export function launchToolDescription(profiles: ReadonlyMap<string, Profile>): string {
+  const base =
+    "Launch an interactive Pi subagent in tmux and return immediately. Omit placement unless the user explicitly requests one, so the configured default applies. Results and help requests automatically start another parent turn. Never wait with sleep or repeated status checks."
+  if (profiles.size <= 1) return base
+  return `${base} Available profiles: ${[...profiles.keys()].join(", ")}. Omit profile to use the configured default.`
+}
+
+export function launchParametersSchema(profiles: ReadonlyMap<string, Profile>) {
+  const parameters = {
+    name: Type.String(),
+    task: Type.String({
+      description:
+        "Focused child assignment. For fresh context, make it self-contained or name each applicable handoff file and instruct the child to read it.",
+    }),
+    context: Type.Optional(ContextSchema),
+    model: Type.Optional(ModelSchema),
+    thinking: Type.Optional(ThinkingSchema),
+    cwd: Type.Optional(Type.String()),
+    placement: Type.Optional(PlacementSchema),
+    autoComplete: Type.Optional(Type.Boolean()),
+  }
+  if (profiles.size <= 1) return Type.Object(parameters)
+  return Type.Object({
+    ...parameters,
+    profile: Type.Optional(
+      StringEnum([...profiles.keys()], {
+        description: "Subagent profile. Omit it to use the configured default profile.",
+      }),
+    ),
+  })
+}
+
 function resolveLaunch(
   config: SubaConfig,
   profile: Profile,
@@ -327,23 +359,9 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
   pi.registerTool({
     name: "suba",
     label: "Suba",
-    description:
-      "Launch an interactive Pi subagent in tmux and return immediately. Omit placement unless the user explicitly requests one, so the configured default applies. Results and help requests automatically start another parent turn. Never wait with sleep or repeated status checks.",
+    description: launchToolDescription(host.profiles),
     promptSnippet: "Launch an asynchronous interactive Pi subagent with suba",
-    parameters: Type.Object({
-      name: Type.String(),
-      task: Type.String({
-        description:
-          "Focused child assignment. For fresh context, make it self-contained or name each applicable handoff file and instruct the child to read it.",
-      }),
-      profile: Type.Optional(Type.String()),
-      context: Type.Optional(ContextSchema),
-      model: Type.Optional(ModelSchema),
-      thinking: Type.Optional(ThinkingSchema),
-      cwd: Type.Optional(Type.String()),
-      placement: Type.Optional(PlacementSchema),
-      autoComplete: Type.Optional(Type.Boolean()),
-    }),
+    parameters: launchParametersSchema(host.profiles),
     async execute(_id, params, _signal, _update, ctx) {
       const record = await start(params, ctx)
       return {
@@ -367,21 +385,22 @@ export function registerTools(pi: ExtensionAPI, host: ManagerHost): void {
       }
     },
     renderCall(args, theme) {
-      const profile = host.profiles.get(args.profile ?? host.config.defaultProfile)
-      const model = args.model ?? profile?.model ?? host.config.model
-      const thinking = args.thinking ?? profile?.thinking ?? host.config.thinking
+      const launchArgs = args as typeof args & { profile?: string }
+      const profile = host.profiles.get(launchArgs.profile ?? host.config.defaultProfile)
+      const model = launchArgs.model ?? profile?.model ?? host.config.model
+      const thinking = launchArgs.thinking ?? profile?.thinking ?? host.config.thinking
       const meta = invocationLabel(
         model,
         thinking,
-        profile?.name ?? args.profile ?? host.config.defaultProfile,
+        profile?.name ?? launchArgs.profile ?? host.config.defaultProfile,
       )
       const lines = [
-        `${theme.fg("accent", "▸")} ${theme.fg("toolTitle", theme.bold(args.name || "subagent"))}${meta ? theme.fg("dim", `  ${meta}`) : ""}`,
+        `${theme.fg("accent", "▸")} ${theme.fg("toolTitle", theme.bold(launchArgs.name || "subagent"))}${meta ? theme.fg("dim", `  ${meta}`) : ""}`,
       ]
-      if (args.task) {
-        const count = args.task.split(/\r?\n/).length
+      if (launchArgs.task) {
+        const count = launchArgs.task.split(/\r?\n/).length
         lines.push(
-          `${theme.fg("toolOutput", oneLine(args.task))}${count > 1 ? theme.fg("muted", ` · ${count} lines`) : ""}`,
+          `${theme.fg("toolOutput", oneLine(launchArgs.task))}${count > 1 ? theme.fg("muted", ` · ${count} lines`) : ""}`,
         )
       }
       return new Text(lines.join("\n"), 0, 0)

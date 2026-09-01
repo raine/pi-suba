@@ -5,13 +5,16 @@ interface DelegationProfile {
   description?: string
 }
 
-function profileLines(profiles: Iterable<DelegationProfile>): string[] {
-  return [...profiles]
-    .sort((left, right) => left.name.localeCompare(right.name))
-    .map(({ name, description }) => {
+function profileGuidance(profiles: Iterable<DelegationProfile>): string[] {
+  const available = [...profiles].sort((left, right) => left.name.localeCompare(right.name))
+  if (available.length <= 1) return []
+  return [
+    "Choose profiles only from this list of available subagent profiles:",
+    ...available.map(({ name, description }) => {
       const summary = description?.replace(/\s+/g, " ").trim()
       return summary ? `  ${name}: ${summary}` : `  ${name}`
-    })
+    }),
+  ]
 }
 
 export function subaDelegationPrompt(task: string, profiles: Iterable<DelegationProfile>): string {
@@ -27,8 +30,7 @@ export function subaDelegationPrompt(task: string, profiles: Iterable<Delegation
     "Omit placement unless the user explicitly requests a specific placement. Omission uses the configured default. The built-in default places children in splits in the parent window.",
     "Do not wait for subagents during the active turn. Results and guidance requests arrive automatically and start another turn.",
     "After launching, continue useful independent work or end your turn. Never use sleep or repeated suba_list calls to wait.",
-    "Choose profiles only from this list of available subagent profiles:",
-    ...profileLines(profiles),
+    ...profileGuidance(profiles),
     "",
     "The objective is for the parent agent to coordinate. Derive focused subagent tasks from it.",
     "<objective>",

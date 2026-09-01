@@ -114,7 +114,7 @@ The `suba` tool accepts:
 | -------------- | ------------------------------------------------------------ |
 | `name`         | Short label for the child                                    |
 | `task`         | Focused, self-contained assignment                           |
-| `profile`      | Child profile name                                           |
+| `profile`      | Child profile name, exposed when multiple profiles exist     |
 | `context`      | `fresh` or `fork`                                            |
 | `model`        | Fully qualified `provider/model` identifier                  |
 | `thinking`     | `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max` |

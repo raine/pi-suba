@@ -50,6 +50,11 @@ describe("suba command", () => {
     expect(prompt).toContain("\n<objective>\nInspect tmux\n</objective>")
   })
 
+  it("hides profile guidance when only the default profile exists", () => {
+    const prompt = subaDelegationPrompt("Inspect tmux", [{ name: "default" }])
+    expect(prompt).not.toContain("profile")
+  })
+
   it("sends an immediate delegation request while idle", async () => {
     const sendUserMessage = vi.fn()
     const { ctx } = context({ idle: true })
