@@ -7,6 +7,7 @@ import { promisify } from "node:util"
 import { afterEach, describe, expect, it } from "vitest"
 import {
   childControlPrompt,
+  childTools,
   invocation,
   launchParametersSchema,
   launchScript,
@@ -52,6 +53,16 @@ describe("child launch validation", () => {
     expect(prompt).toContain("Do not call suba_done for this workflow")
     expect(prompt).toContain("uses suba_finish to record completion")
     expect(childControlPrompt(false)).not.toContain("/skill:merge")
+  })
+  it("enables configured extension tools alongside the profile policy", () => {
+    expect(childTools(["read", "bash"], ["process", "read"])).toEqual([
+      "read",
+      "bash",
+      "process",
+      "suba_done",
+      "suba_notify",
+      "suba_ask",
+    ])
   })
   it("requires fully qualified model identifiers", () => {
     expect(parseQualifiedModel("openai-codex/gpt-5.6-sol")).toEqual({

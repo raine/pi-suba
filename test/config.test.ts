@@ -9,12 +9,14 @@ describe("configuration", () => {
         defaultProfile: "explore",
         thinking: "high",
         childExtensions: ["../../code/pi-cc-tools-local"],
+        childTools: ["process"],
         activity: { pollMs: 200, maxRows: 3 },
       }),
     ).toMatchObject({
       defaultProfile: "explore",
       thinking: "high",
       childExtensions: ["../../code/pi-cc-tools-local"],
+      childTools: ["process"],
       activity: { pollMs: 200, maxRows: 3 },
     }))
   it.each([
@@ -36,5 +38,6 @@ describe("configuration", () => {
     expect(() => parseConfig({ surprise: true })).toThrow("unsupported key")
     expect(() => parseConfig({ activity: { pollMs: 10 } })).toThrow("between 100")
     expect(() => parseConfig({ childExtensions: ["same", "same"] })).toThrow("duplicates")
+    expect(() => parseConfig({ childTools: ["read,process"] })).toThrow("single tool name")
   })
 })

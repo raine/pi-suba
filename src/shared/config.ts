@@ -10,6 +10,7 @@ export interface SubaConfig {
   thinking?: ThinkingLevel
   autoComplete: boolean
   childExtensions: string[]
+  childTools: string[]
   activity: { pollMs: number; maxRows: number }
 }
 
@@ -17,6 +18,7 @@ export const DEFAULT_CONFIG: SubaConfig = {
   defaultProfile: "default",
   autoComplete: true,
   childExtensions: [],
+  childTools: [],
   activity: { pollMs: 500, maxRows: 8 },
 }
 
@@ -26,6 +28,7 @@ const ROOT_KEYS = new Set([
   "thinking",
   "autoComplete",
   "childExtensions",
+  "childTools",
   "activity",
   // Obsolete layout keys are accepted but never read or returned.
   "placement",
@@ -58,6 +61,14 @@ function stringArray(value: unknown, label: string): string[] {
   const result = value.map((item, index) => string(item, `${label}[${index}]`).trim())
   if (new Set(result).size !== result.length)
     throw new Error(`${label} must not contain duplicates`)
+  return result
+}
+
+function toolNames(value: unknown, label: string): string[] {
+  const result = stringArray(value, label)
+  for (const [index, name] of result.entries())
+    if (name.includes(",") || /\s/.test(name))
+      throw new Error(`${label}[${index}] must be a single tool name`)
   return result
 }
 
@@ -96,6 +107,10 @@ export function parseConfig(value: unknown): SubaConfig {
       input.childExtensions === undefined
         ? [...DEFAULT_CONFIG.childExtensions]
         : stringArray(input.childExtensions, "childExtensions"),
+    childTools:
+      input.childTools === undefined
+        ? [...DEFAULT_CONFIG.childTools]
+        : toolNames(input.childTools, "childTools"),
     activity: {
       pollMs:
         activityInput.pollMs === undefined

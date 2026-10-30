@@ -310,6 +310,7 @@ All files are optional. Configuration and profiles have built-in defaults. Witho
   "thinking": "medium",
   "autoComplete": true,
   "childExtensions": ["npm:some-pi-package"],
+  "childTools": ["some_tool"],
   "activity": {
     "pollMs": 500,
     "maxRows": 8
@@ -324,6 +325,7 @@ All files are optional. Configuration and profiles have built-in defaults. Witho
 | `thinking`              | Pi default            | Default child thinking level                |
 | `autoComplete`          | `true`                | Finish a child when its agent settles       |
 | `childExtensions`       | `[]`                  | Additional extensions loaded in every child |
+| `childTools`            | `[]`                  | Additional tools enabled in every child     |
 | `activity.pollMs`       | `500`                 | Parent watcher interval in milliseconds     |
 | `activity.maxRows`      | `8`                   | Maximum rows in the activity widget         |
 
@@ -338,6 +340,11 @@ Children start with automatic extension discovery disabled. `childExtensions` li
 files loaded explicitly in every child. It accepts npm package sources, absolute paths, `~/` paths,
 and relative paths. Relative paths resolve from the active Pi agent directory, matching relative
 package sources in Pi settings.
+
+Children also start with an explicit tool allowlist: the profile's tool policy plus the Suba tools.
+Pi hides any other tool, including tools registered by `childExtensions`. List those tool names in
+`childTools` to enable them in every child, for example `"childTools": ["process"]` alongside the
+extension that registers `process`.
 
 Configuration and profiles are read when the parent session starts.
 
